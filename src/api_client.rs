@@ -11,11 +11,11 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
-use tokio::sync::mpsc::{channel, Receiver};
-use crate::broadcaster::{Broadcaster, SubscriberName};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::time::sleep;
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
-use crate::rithmic_proto_objects::rti::{RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
+use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
 use crate::errors::RithmicApiError;
 
 ///Server uses Big Endian format for binary data
@@ -37,9 +37,6 @@ pub struct RithmicApiClient {
 
     /// The time the last message was sent, this is used to determine if we need to send a heartbeat.
     last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>,
-
-    /// Broadcasters for specific SysInfraType subscribers to subscribe to incoming messages from the read half of the websocket
-    broadcasters: Arc<DashMap<SysInfraType, Broadcaster>>
 }
 
 impl RithmicApiClient {
@@ -53,22 +50,6 @@ impl RithmicApiClient {
             plant_reader: Arc::new(DashMap::new()),
             heart_beat_intervals: Arc::new(Default::default()),
             last_message_time: Arc::new(Default::default()),
-            broadcasters: Arc::new(Default::default()),
-        }
-    }
-
-    pub fn subscribe(&self, plant: SysInfraType, subscriber_name: SubscriberName, buffer_size: usize) -> Result<Receiver<Vec<u8>>, RithmicApiError> {
-        if let Some(broadcaster) = self.broadcasters.get(&plant) {
-            let receiver = broadcaster.value().subscribe(subscriber_name, buffer_size);
-            return Ok(receiver)
-        }
-        Err(RithmicApiError::ClientErrorDebug(format!("You have not connected to this web socket: {:?}, please use connect_and_login()", plant)))
-    }
-
-    /// Unsubscribe from further messages
-    pub fn unsubscribe(&self,plant: SysInfraType, subscriber_name: &SubscriberName) {
-        if let Some(broadcaster) = self.broadcasters.get(&plant) {
-            broadcaster.value().unsubscribe(subscriber_name);
         }
     }
 
@@ -127,7 +108,7 @@ impl RithmicApiClient {
     async fn read_single_protobuf_message<T: RithmicMessage + Default>(
         stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>
     ) -> Result<T, RithmicApiError> {
-        while let Some(msg) = stream.next().await {
+        while let Some(msg) = stream.next().await { //todo change from while to if and test
             let msg = match msg {
                 Ok(msg) => msg,
                 Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to read RithmicMessage: {}", e)))
@@ -160,8 +141,9 @@ impl RithmicApiClient {
     /// Connect to the desired plant and sign in with your credentials.
     pub async fn connect_and_login(
         &self,
-        plant: SysInfraType
-    ) -> Result<(), RithmicApiError> {
+        plant: SysInfraType,
+        buffer_size: usize
+    ) -> Result<Receiver<Vec<u8>>, RithmicApiError> {
 
         if plant as i32 > 5 {
             return Err(RithmicApiError::ClientErrorDebug("Incorrect value for rithmic SysInfraType".to_string()))
@@ -229,10 +211,10 @@ impl RithmicApiClient {
         self.connected_plant.write().await.push(plant.clone());
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
         self.plant_reader.insert(plant.clone(), Arc::new(Mutex::new(ws_reader)));
-        if !self.broadcasters.contains_key(&plant) {
-            self.broadcasters.insert(plant.clone(), Broadcaster::new());
-        }
-        Ok(())
+        self.start_heartbeat(plant).await;
+        let (sender, receiver) = channel::<Vec<u8>>(buffer_size);
+        self.fwd_receive_responses(plant, sender).await?;
+        Ok(receiver)
     }
 
     /// Send a message on the write half of the plant stream.
@@ -301,6 +283,7 @@ impl RithmicApiClient {
             }
         }
         self.connected_plant.write().await.retain(|x| *x != plant);
+
         println!("Safely shutdown rithmic split stream");
         Ok(())
     }
@@ -324,26 +307,117 @@ impl RithmicApiClient {
         Ok(())
     }
 
-    pub async fn manage_responses (
-        _api_client: &Self,
-        _plant: SysInfraType
+    pub async fn fwd_receive_responses(
+        &self,
+        plant: SysInfraType,
+        sender: Sender<Vec<u8>>
     ) -> Result<(), RithmicApiError> {
-     /*     tokio::task::spawn(async move {
-                   while let Some(messages) = ws_reader.
-           });*/
+        let readers = self.plant_reader.clone();
+        let last_message_time = self.last_message_time.clone();
+        if let Some(read_stream) = readers.get(&plant) {
+            let read_stream = read_stream.value().clone();
+            tokio::task::spawn(async move {
+                let mut read_stream = read_stream.lock().await;
+                while let Some(message) = read_stream.next().await {
+                    match message {
+                        Ok(message) => {
+                            match message {
+                                Message::Binary(bytes) => {
+                                    // Create a cursor for reading the data
+                                    match sender.send(bytes).await {
+                                        Ok(_) => {}
+                                        Err(e) => eprintln!("error forwarding bytes: {}", e)
+                                    }
+                                }
+                                _ => {}
+                            }
+                        },
+                        Err(e) => eprintln!("{:?} Error receiving message: {}", plant, e)
+                    }
+                    last_message_time.insert(plant.clone(), Utc::now());
+                }
+            });
+        }
         Ok(())
     }
 
-    /// Use this when we don't have any active subscriptions to persist the connection
-    pub async fn idle_heart_beat(
-        &self
+    pub async fn start_heartbeat(
+        &self,
+        plant: SysInfraType,
     ) {
-        // Heartbeats
-        /* Heartbeats responses from the server are a way of monitoring the communication link between client and server.
-        Upon making a successful login to the Rithmic Infrastructure, clients are expected to send at least a heartbeat request
-        (if no other requests are sent) to the server in order to keep the connection active. The heartbeat interval is specified in the login response.
-         If clients don’t subscribe to any updates, nor send any queries, including heartbeats, then over a threshold amount of time the server will terminate
-         such connections for not keeping the link active.
-         Heartbeat requests from clients are not required when the client application is already receiving updates or responses from the server within the threshold period.*/
+        // Interval for heartbeat checks
+        let heartbeat_interval = self.heart_beat_intervals.read().await.get(&plant).unwrap().clone();
+        let last_message = self.last_message_time.clone();
+        let sender = self.plant_writer.get(&plant).unwrap().clone();
+        let heart_beat = RequestHeartbeat {
+            template_id: 18,
+            user_msg: vec![],
+            ssboe: None,
+            usecs: None,
+        };
+        tokio::task::spawn(async move {
+            loop {
+                // Check if the last message timestamp for the plant is older than the interval duration
+                if let Some(last_msg_time) = last_message.get(&plant) {
+                    if Utc::now() >= *last_msg_time + heartbeat_interval {
+                        // Send heartbeat message
+                        if let Err(e) = RithmicApiClient::send_message_with_writer(sender.clone(), &heart_beat, last_message.clone(), plant.clone()).await {
+                            // Handle the error (log, retry, etc.)
+                            eprintln!("Failed to send heartbeat: {}", e);
+                        }
+                    }
+                }
+                sleep(heartbeat_interval - Duration::from_secs(1)).await;
+            }
+        });
+    }
+
+    pub async fn deserialize_message<T: RithmicMessage + Default>(
+        &self,
+        message: Message
+    ) -> Result<T, RithmicApiError> {
+        if let tungstenite::Message::Binary(data) = message {
+            // Create a cursor for reading the data
+            let mut cursor = Cursor::new(data);
+
+            // Read the 4-byte length header
+            let mut length_buf = [0u8; 4];
+            tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io)?;
+            let length = u32::from_be_bytes(length_buf) as usize;
+
+            // Read the Protobuf message
+            let mut message_buf = vec![0u8; length];
+            tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io)?;
+
+            // Decode the Protobuf message
+            T::decode(&message_buf[..]).map_err(RithmicApiError::ProtobufDecode)
+        } else {
+            Err(RithmicApiError::ServerErrorDebug("Received non-binary message".to_string()))
+        }
+    }
+
+    pub async fn send_message_with_writer<T: RithmicMessage>(
+        writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
+        message: &T,
+        last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>,
+        plant: SysInfraType
+    ) -> Result<(), RithmicApiError> {
+        let mut buf = Vec::new();
+
+        match message.encode(&mut buf) {
+            Ok(_) => {}
+            Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to encode RithmicMessage: {}", e)))
+        }
+
+        let length = buf.len() as u32;
+        let mut prefixed_msg = length.to_be_bytes().to_vec();
+        prefixed_msg.extend(buf);
+
+        last_message_time.insert(plant, Utc::now());
+        let mut writer = writer.lock().await;
+        match writer.send(Message::Binary(prefixed_msg)).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(RithmicApiError::ServerErrorDebug(format!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)))
+        }
     }
 }

@@ -1,8 +1,10 @@
-use tokio::time::{sleep, Duration};
+use std::io::Cursor;
 use crate::api_client::RithmicApiClient;
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::RequestHeartbeat;
+use tokio::sync::mpsc::Receiver;
+use crate::errors::RithmicApiError;
 
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,15 +21,15 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     let rithmic_api = RithmicApiClient::new(credentials);
 
     // Test connections
-    rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
+    let mut ticker_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
-    rithmic_api.connect_and_login(SysInfraType::HistoryPlant).await?;
+    let _history_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
-    rithmic_api.connect_and_login(SysInfraType::OrderPlant).await?;
+    let _order_receiver: Receiver<Vec<u8>> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
-    rithmic_api.connect_and_login(SysInfraType::PnlPlant).await?;
+    let _pnl_receiver: Receiver<Vec<u8>> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
-    rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
+    let _repo_receiver: Receiver<Vec<u8>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 
 
@@ -40,8 +42,34 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     };
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
 
-    // Sleep to simulate some work
-    sleep(Duration::from_secs(5)).await;
+
+
+    // we can consume the messages like this.
+    while let Some(message) = ticker_receiver.recv().await {
+        //messages will be forwarded here
+        let mut cursor = Cursor::new(message);
+
+        // Read the 4-byte length header
+        let mut length_buf = [0u8; 4];
+        let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
+        let length = u32::from_be_bytes(length_buf) as usize;
+
+        // Read the Protobuf message
+        let mut message_buf = vec![0u8; length];
+        match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
+            Ok(_) => {}
+            Err(e) => eprintln!("Failed to read_extract message: {}", e)
+        }
+
+   /*     match RithmicMessage::decode(&message_buf[..]) {
+            Ok(decoded_msg) =>{
+                // we get our proto message as a concrete type here
+                println!("{:?}", decoded_msg)
+            }
+            Err(e) => eprintln!("failed to decode message: {}", e), // Use the ProtobufDecode variant
+        }*/
+
+    }
 
     // Logout and Shutdown all connections
     rithmic_api.shutdown_all().await?;

@@ -3,8 +3,8 @@ This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/f
 
 The api is currently incomplete but will eventually contain full functionality for rithmic RProtocol api. 
 
-## Workin Progress
-Currently Building subscriber model for streaming incoming messages.
+## Work in Progress
+Need to determine a way to dynamically decode messages without knowing the concrete types.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
 ## Login and connect
@@ -35,7 +35,8 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
 }
 ```
-Step 3: Connect to the desired rithmic plant:
+Step 3: Connect to the desired rithmic plant, get back a receiver which will receive the messages from the reader as the bytes from inside the received `Message::Binary(bytes)`.
+An event loop will start on the receiver side of the stream and a heartbeat will automatically be sent to keep the connection alive if no other messages have been sent.
 ```rust
 #[tokio::main]
 async fn main() {
@@ -49,11 +50,20 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
     
     // connect to plants
-    rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::HistoryPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::OrderPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::PnlPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
+    let mut ticker_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await.unwrap();
+    assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
+    
+    let mut history_receiver: Receiver<T> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
+   
+    let mut order_receiver: Receiver<T> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
+    
+    let mut pnl_receiver: Receiver<T> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
+    
+    let mut repo_receiver: Receiver<T> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 }
 ```
 
@@ -68,7 +78,7 @@ async fn main() {
     let app_name = credentials.app_name.clone();
     
     // login to the ticker plant
-    rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
+    let mut ticker_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await.unwrap();
     
     // check we connected, note this function will not automatically tell us if the websocket was disconnected after the initial connection
     if !rithmic_api.is_connected(SysInfraType::TickerPlant).await {
@@ -85,20 +95,6 @@ async fn main() {
     // we can send the message to the specified plant.
     let send_message = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
     
-    // we can get the reader or writer for the plant if we want to create our own functions for messaging, rather than using the associated type functions.
-    // with the reader it will be better to just use an mspc channel to subscribe to the message stream. (when I code it)
-    let reader: Option<Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>> = rithmic_api.get_reader(&SysInfraType::TickerPlant).await;
-    if let Some(reader) = reader {
-        //do something
-    }
-
-    /// We can get the writer for our own custom handling.
-    /// It doesn't make much sense to do this because we can just use rithmic_api.send_message().await as shown above.
-    /// I made the option in case you find my code inefficient, in which case fix it and send me the request.
-    let writer: Option<Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>> = rithmic_api.get_writer(&SysInfraType::TickerPlant).await;
-    if let Some(writer) = writer {
-        //do something
-    }
 }
 ```
 
@@ -119,11 +115,8 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
 
     // Test connections
-    rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::HistoryPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::OrderPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::PnlPlant).await?;
-    rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
+    let mut ticker_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await.unwrap();
+    assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
 
     // Sleep to simulate some work
     sleep(Duration::from_secs(5)).await;
