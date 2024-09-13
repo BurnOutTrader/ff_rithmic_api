@@ -6,7 +6,7 @@ use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     // Define the file path for credentials
-    let file_path = String::from("/rithmic_credentials.toml".to_string());
+    let file_path = String::from("rithmic_credentials.toml".to_string());
 
     // Define credentials
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
@@ -25,10 +25,9 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
 
     // Sleep to simulate some work
-    sleep(Duration::from_secs(15)).await;
+    sleep(Duration::from_secs(5)).await;
 
     // Shutdown all connections
     rithmic_api.shutdown_all().await?;
-
     Ok(())
 }
