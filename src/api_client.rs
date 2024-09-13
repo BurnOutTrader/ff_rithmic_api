@@ -127,7 +127,7 @@ impl RithmicApiClient {
     pub async fn connect_and_login(
         &self,
         plant: SysInfraType,
-        buffer_size: usize
+        _buffer_size: usize
     ) -> Result<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>, RithmicApiError> {
 
         if plant as i32 > 5 {

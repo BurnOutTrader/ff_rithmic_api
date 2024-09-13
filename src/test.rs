@@ -29,10 +29,10 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     let rithmic_api = RithmicApiClient::new(credentials);
 
     // Test connections
-    let mut ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
+    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
 
-/*    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
+    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
 
     let _order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
@@ -43,7 +43,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
-*/
+
 
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
     let heart_beat = RequestHeartbeat {
@@ -75,7 +75,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 /// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 pub async fn handle_received_responses(
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    plant: SysInfraType,
+    _plant: SysInfraType,
 ) -> Result<(), RithmicApiError> {
     //tokio::task::spawn(async move {
         while let Some(message) = reader.next().await {
