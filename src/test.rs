@@ -107,7 +107,7 @@ pub async fn handle_received_responses(
                                 match template_id {
                                     19 => {
                                         if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
-                                            println!("Decoded as ResponseHeartbeat: {:?}", msg);
+                                            println!("Decoded as: {:?}", msg);
 
                                             //for the sake of the example I am breaking the loop early
                                             break;

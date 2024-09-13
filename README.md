@@ -132,7 +132,7 @@ pub async fn fwd_received_responses (
                                 // Assuming each message type has a unique template_id
                                 19 => {
                                     if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {   
-                                        println!("Decoded as ResponseHeartbeat: {:?}", msg);
+                                        println!("Decoded as: {:?}", msg);
 
                                         //for the sake of the example I am breaking the loop early
                                         break;
