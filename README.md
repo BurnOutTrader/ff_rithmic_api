@@ -94,7 +94,7 @@ async fn main() {
 
     /// We can get the writer for our own custom handling.
     /// It doesn't make much sense to do this because we can just use rithmic_api.send_message().await as shown above.
-    /// I made the option in case you find my code in efficient, in which case fix it and send me the request.
+    /// I made the option in case you find my code inefficient, in which case fix it and send me the request.
     let writer: Option<Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>> = rithmic_api.get_writer(&SysInfraType::TickerPlant).await;
     if let Some(writer) = writer {
         //do something
