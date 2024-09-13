@@ -2,6 +2,8 @@
 This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/fund-forge), an algorithmic trading platform written in rust.
 It is currently incomlete but will eventually contain full functionality for rithmic RProtocol api.
 
+Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
+
 ## Login and connect
 Step 1: Enter your api details provided by rithmic into the rithmic_credentials.toml, if the toml does not exist, then you can create new credentials and save them to a file \
 Step 2: Load credentials and create an instance of a RithmicApiClient:
