@@ -196,8 +196,16 @@ impl RithmicApiClient {
         let (ws_writer, ws_reader) = stream.split();
         self.connected_plant.write().await.push(plant.clone());
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
-        self.start_heartbeat(plant).await;
-        Ok(ws_reader)
+        match self.start_heartbeat(plant).await {
+            Ok(_) => Ok(ws_reader),
+            Err(e) => {
+                match self.shutdown_plant(plant).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+                Err(RithmicApiError::ClientErrorDebug(format!("{}", e)))
+            },
+        }
     }
 
     /// Send a message on the write half of the plant stream.
@@ -281,24 +289,30 @@ impl RithmicApiClient {
     pub async fn start_heartbeat(
         &self,
         plant: SysInfraType,
-    ) {
+    ) -> Result<(), RithmicApiError> {
         // Interval for heartbeat checks
-        let heartbeat_interval = self.heart_beat_intervals.read().await.get(&plant).unwrap().clone();
+        let heartbeat_interval = match self.heart_beat_intervals.read().await.get(&plant) {
+            None => return Err(RithmicApiError::ClientErrorDebug("No heartbeat interval recorded at log in, please logout and login again".to_string())),
+            Some(hb) => hb
+        }.clone();
+
         let last_message = self.last_message_time.clone();
-        let writer = self.plant_writer.get(&plant).unwrap().clone();
+        let writer = match self.plant_writer.get(&plant){
+            None => return Err(RithmicApiError::ClientErrorDebug("No writer stored at log in, please logout and login again".to_string())),
+            Some(writer) => writer
+        }.value().clone();
+
         let heart_beat_request = RequestHeartbeat {
             template_id: 18,
             user_msg: vec![],
             ssboe: None,
             usecs: None,
         };
+
         let mut buf = Vec::new();
         match heart_beat_request.encode(&mut buf) {
             Ok(_) => {}
-            Err(e) => {
-                eprintln!("Failed to encode RithmicMessage: {}", e);
-                return;
-            }
+            Err(e) => return Err(RithmicApiError::ClientErrorDebug(format!("Failed to encode RithmicMessage: {}", e)))
         }
 
         // we can create a reusable buffer of the heartbeat message, so we don't need to recreate it each time.
@@ -324,6 +338,7 @@ impl RithmicApiClient {
                 sleep(heartbeat_interval - Duration::from_millis(500)).await;
             }
         });
+        Ok(())
     }
 
     pub async fn deserialize_message<T: ProstMessage + Default>(
