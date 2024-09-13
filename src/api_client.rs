@@ -61,14 +61,6 @@ impl RithmicApiClient {
         }
     }
 
-    /// get the reader for the specified plant
-    pub async fn get_reader(&self,  plant: &SysInfraType) -> Option<Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>> {
-        match self.plant_reader.get(plant) {
-            None => None,
-            Some(reader) => Some(reader.clone())
-        }
-    }
-
     // This function does not check if the connection is mainatained, only that it was established initially.
     pub async fn is_connected(
         &self,
