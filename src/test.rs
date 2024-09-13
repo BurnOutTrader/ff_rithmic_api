@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use std::fs;
 use std::io::Cursor;
 use std::time::Duration;
 use crate::api_client::RithmicApiClient;
@@ -7,17 +5,12 @@ use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, ResponseHeartbeat};
 use tokio::sync::mpsc::Receiver;
-use regex::Regex;
 use crate::errors::RithmicApiError;
-use walkdir::WalkDir;
-use prost::{Message as RithmicMessage};
+use prost::{Message as ProstMessage};
+use prost::encoding::{decode_key, decode_varint, WireType};
 use tokio::time::Instant;
 use tungstenite::Message;
-
-// Decoder function type alias
-type DecoderFn = fn(Vec<u8>) -> Box<dyn RithmicMessage>;
-
-// Define your decoding functions for each message type
+use crate::map::create_template_decoder_map;
 
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,14 +29,14 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     // Test connections
     let mut ticker_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
-    let _history_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
+  /*  let _history_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
     let _order_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
     let _pnl_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
     let _repo_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
-    assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
+    assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);*/
 
 
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
@@ -55,14 +48,26 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     };
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
 
+    let map = create_template_decoder_map();
+    receive::<ResponseHeartbeat>(ticker_receiver).await; //i think the key is to return a
+    // Logout and Shutdown all connections
+    rithmic_api.shutdown_all().await?;
+    // or Logout and Shutdown a single connection
+    //RithmicApiClient::shutdown_split_websocket(&rithmic_api, SysInfraType::TickerPlant).await?;
+
+    Ok(())
+}
 
 
+pub async fn receive<T: ProstMessage + std::default::Default>(mut receiver: Receiver<Message>)   {
     let end_time = Instant::now() + Duration::from_secs(300); // 5 minutes from now
     while Instant::now() < end_time {
-        if let Some( message) = ticker_receiver.recv().await {
+        if let Some( message) = receiver.recv().await {
             println!("{}", message);
             match message {
-                Message::Text(_) => {}
+                Message::Text(text) => {
+                    println!("{}", text)
+                }
                 Message::Binary(bytes) => {
                     //messages will be forwarded here
                     let mut cursor = Cursor::new(bytes);
@@ -74,42 +79,71 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
                     // Read the Protobuf message
                     let mut message_buf = vec![0u8; length];
+
                     match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
                         Ok(_) => {}
                         Err(e) => eprintln!("Failed to read_extract message: {}", e)
                     }
 
-                    // Create a cursor to wrap the remaining data in the buffer.
-                    let mut cursor = Cursor::new(&message_buf);
-                    match ResponseHeartbeat::decode(&mut cursor) {
-                        Ok(decoded_msg) => {
-                            println!("{:?}", decoded_msg);
+                    if let Some(template_id) = extract_template_id(&message_buf) {
+                        println!("Extracted template_id: {}", template_id);
+
+                        // Now you can use the template_id to determine which type to decode into
+                        match template_id {
+                            // Assuming each message type has a unique template_id
+                            19 => {
+                                if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
+                                    println!("Decoded as AccountRmsUpdates: {:?}", msg);
+                                }
+                            },
+                            // Add cases for other template_ids and corresponding message types
+                            _ => println!("Unknown template_id: {}", template_id),
                         }
-                        Err(e) => {
-                            eprintln!("Failed to decode message: {}", e);
-                        }
+                    } else {
+                        println!("Failed to extract template_id");
                     }
                 }
-                Message::Ping(_) => {}
-                Message::Pong(_) => {}
-                Message::Close(_) => {}
-                Message::Frame(_) => {}
+                Message::Ping(ping) => {
+                    println!("{:?}", ping)
+                }
+                Message::Pong(pong) => {
+                    println!("{:?}", pong)
+                }
+                Message::Close(close) => {
+                    println!("{:?}", close)
+                }
+                Message::Frame(frame) => {
+                    println!("{}", frame)
+                }
+            }
+        }
+    }
+}
+
+fn extract_template_id(bytes: &[u8]) -> Option<i32> {
+    let mut cursor = Cursor::new(bytes);
+
+    while let Ok((field_number, wire_type)) = decode_key(&mut cursor) {
+        if field_number == 154467 && wire_type == WireType::Varint {
+            // We've found the template_id field
+            return decode_varint(&mut cursor).ok().map(|v| v as i32);
+        } else {
+            // Skip this field
+            match wire_type {
+                WireType::Varint => { let _ = decode_varint(&mut cursor); }
+                WireType::SixtyFourBit => { let _ = cursor.set_position(cursor.position() + 8); }
+                WireType::LengthDelimited => {
+                    if let Ok(len) = decode_varint(&mut cursor) {
+                        let _ = cursor.set_position(cursor.position() + len as u64);
+                    } else {
+                        return None; // Error decoding length
+                    }
+                }
+                WireType::StartGroup | WireType::EndGroup => {} // These are deprecated and shouldn't appear
+                WireType::ThirtyTwoBit => { let _ = cursor.set_position(cursor.position() + 4); }
             }
         }
     }
 
-    // Logout and Shutdown all connections
-    rithmic_api.shutdown_all().await?;
-    // or Logout and Shutdown a single connection
-    //RithmicApiClient::shutdown_split_websocket(&rithmic_api, SysInfraType::TickerPlant).await?;
-
-    Ok(())
+    None // template_id field not found
 }
-
-
-/*
-println!("attemot to decode");
-                let template = u16::from_be_bytes([buffer[0], buffer[1]]);
-                println!("template id: {}", template);
-
-*/

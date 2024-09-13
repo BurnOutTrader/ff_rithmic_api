@@ -3,4 +3,5 @@ pub mod api_client;
 pub mod credentials;
 pub mod test;
 pub mod errors;
+pub mod map;
 

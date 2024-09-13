@@ -1,8 +1,44 @@
-/*pub fn create_template_decoder_map() -> HashMap<i32, DecodeFn> {
-    let mut map = HashMap::new();
+use std::any::Any;
+use std::collections::HashMap;
+use std::io::Cursor;
+use prost::Message;
+use crate::errors::RithmicApiError;
+use crate::rithmic_proto_objects::rti::ResponseHeartbeat;
+
+pub async fn decode_response_heartbeat(data: Vec<u8>) -> Result<Box<ResponseHeartbeat>, RithmicApiError> {
+    //messages will be forwarded here
+    let mut cursor = Cursor::new(data);
+    // Read the 4-byte length header
+    let mut length_buf = [0u8; 4];
+    let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
+    let length = u32::from_be_bytes(length_buf) as usize;
+    println!("Length: {}", length);
+
+    // Read the Protobuf message
+    let mut message_buf = vec![0u8; length];
+    match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
+        Ok(_) => {}
+        Err(e) => eprintln!("Failed to read_extract message: {}", e)
+    }
+
+    // Create a cursor to wrap the remaining data in the buffer.
+    let mut cursor = Cursor::new(&message_buf);
+    match ResponseHeartbeat::decode(&mut cursor) {
+        Ok(decoded_msg) => {
+            Ok(Box::new(decoded_msg))
+        }
+        Err(e) => {
+            eprintln!("Failed to decode message: {}", e);
+            Err(RithmicApiError::ServerErrorDebug("Unable to convert data".to_string()))
+        }
+    }
+}
+
+pub fn create_template_decoder_map() -> HashMap<i32, fn(Vec<u8>) -> Box<dyn Any>> {
+    let mut map: HashMap<i32, fn(Vec<u8>) -> Box<dyn Any>> = HashMap::new();
 
     // Templates Shared across Infrastructure Plants
-    map.insert(10, |data| Box::new(decode_login_request(data)) as Box<dyn std::any::Any>);
+   /* map.insert(10, |data| Box::new(decode_login_request(data)) as Box<dyn std::any::Any>);
     map.insert(11, |data| Box::new(decode_login_response(data)) as Box<dyn std::any::Any>);
     map.insert(12, |data| Box::new(decode_logout_request(data)) as Box<dyn std::any::Any>);
     map.insert(13, |data| Box::new(decode_logout_response(data)) as Box<dyn std::any::Any>);
@@ -10,14 +46,16 @@
     map.insert(15, |data| Box::new(decode_reference_data_response(data)) as Box<dyn std::any::Any>);
     map.insert(16, |data| Box::new(decode_rithmic_system_info_request(data)) as Box<dyn std::any::Any>);
     map.insert(17, |data| Box::new(decode_rithmic_system_info_response(data)) as Box<dyn std::any::Any>);
-    map.insert(18, |data| Box::new(decode_request_heartbeat(data)) as Box<dyn std::any::Any>);
+    map.insert(18, |data| Box::new(decode_request_heartbeat(data)) as Box<dyn std::any::Any>);*/
     map.insert(19, |data| Box::new(decode_response_heartbeat(data)) as Box<dyn std::any::Any>);
+
+    /*
     map.insert(20, |data| Box::new(decode_rithmic_system_gateway_info_request(data)) as Box<dyn std::any::Any>);
     map.insert(21, |data| Box::new(decode_rithmic_system_gateway_info_response(data)) as Box<dyn std::any::Any>);
     map.insert(75, |data| Box::new(decode_reject(data)) as Box<dyn std::any::Any>);
     map.insert(76, |data| Box::new(decode_user_account_update(data)) as Box<dyn std::any::Any>);
-    map.insert(77, |data| Box::new(decode_forced_logout(data)) as Box<dyn std::any::Any>);
-
+    map.insert(77, |data| Box::new(decode_forced_logout(data)) as Box<dyn std::any::Any>);*/
+/*
     // Templates Specific to Market Data Infrastructure
     map.insert(100, |data| Box::new(decode_market_data_update_request(data)) as Box<dyn std::any::Any>);
     map.insert(101, |data| Box::new(decode_market_data_update_response(data)) as Box<dyn std::any::Any>);
@@ -55,8 +93,8 @@
     map.insert(160, |data| Box::new(decode_depth_by_order(data)) as Box<dyn std::any::Any>);
     map.insert(161, |data| Box::new(decode_depth_by_order_end_event(data)) as Box<dyn std::any::Any>);
     map.insert(162, |data| Box::new(decode_symbol_margin_rate(data)) as Box<dyn std::any::Any>);
-    map.insert(163, |data| Box::new(decode_order_price_limits(data)) as Box<dyn std::any::Any>);
-
+    map.insert(163, |data| Box::new(decode_order_price_limits(data)) as Box<dyn std::any::Any>);*/
+/*
     // Templates Specific to Order Plant Infrastructure
     map.insert(300, |data| Box::new(decode_login_info_request(data)) as Box<dyn std::any::Any>);
     map.insert(301, |data| Box::new(decode_login_info_response(data)) as Box<dyn std::any::Any>);
@@ -162,5 +200,7 @@
     map.insert(506, Arc::new(|data| Box::new(decode_show_agreement_request(data)) as Box<dyn Any + Send>));
     map.insert(507, Arc::new(|data| Box::new(decode_show_agreement_response(data)) as Box<dyn Any + Send>));
     map.insert(508, Arc::new(|data| Box::new(decode_set_rithmic_marketdata_self_certification_status_request(data)) as Box<dyn Any + Send>));
-    map.insert(509, Arc::new(|data| Box::new(decode_set_rithmic_marketdata_self_certification_status_response(data)) as Box<dyn Any + Send>));
-}*/
+    map.insert(509, Arc::new(|data| Box::new(decode_set_rithmic_marketdata_self_certification_status_response(data)) as Box<dyn Any + Send>));*/
+
+    map
+}

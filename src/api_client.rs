@@ -1,5 +1,5 @@
 use std::io::{Cursor};
-use prost::{Message as RithmicMessage};
+use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
@@ -13,7 +13,6 @@ use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::sleep;
-use tungstenite::Error;
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
@@ -81,7 +80,7 @@ impl RithmicApiClient {
     }
 
     /// only used to register and login before splitting the stream.
-    async fn send_single_protobuf_message<T: RithmicMessage>(
+    async fn send_single_protobuf_message<T: ProstMessage>(
         stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>, message: &T
     ) -> Result<(), RithmicApiError> {
         let mut buf = Vec::new();
@@ -98,7 +97,7 @@ impl RithmicApiClient {
     }
 
     /// Used to receive system and login response before splitting the stream.
-    async fn read_single_protobuf_message<T: RithmicMessage + Default>(
+    async fn read_single_protobuf_message<T: ProstMessage + Default>(
         stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>
     ) -> Result<T, RithmicApiError> {
         while let Some(msg) = stream.next().await { //todo change from while to if and test
@@ -210,8 +209,42 @@ impl RithmicApiClient {
         Ok(receiver)
     }
 
+
+    pub async fn fwd_receive_responses (
+        &self,
+        plant: SysInfraType,
+        sender: Sender<Message>
+    ) -> Result<(), RithmicApiError> {
+
+        let readers = self.plant_reader.clone();
+        let last_message_time = self.last_message_time.clone();
+
+        if let Some(read_stream) = readers.get(&plant) {
+            let read_stream = read_stream.value().clone();
+            tokio::task::spawn(async move {
+                let mut read_stream = read_stream.lock().await;
+                while let Some(message) = read_stream.next().await {
+                    match message {
+                        Ok(message) => {
+                            println!("message: {}", message);
+                            match sender.send(message).await {
+                                Ok(_) => {}
+                                Err(e) => eprintln!("error forwarding bytes: {}", e)
+                            }
+                            last_message_time.insert(plant.clone(), Utc::now());
+                        }
+                        Err(e) => {
+                            eprintln!("failed to receive message: {}", e)
+                        }
+                    }
+                }
+            });
+        }
+        Ok(())
+    }
+
     /// Send a message on the write half of the plant stream.
-    pub async fn send_message<T: RithmicMessage>(
+    pub async fn send_message<T: ProstMessage>(
         &self,
         plant: &SysInfraType,
         message: &T
@@ -300,37 +333,6 @@ impl RithmicApiClient {
         Ok(())
     }
 
-    pub async fn fwd_receive_responses(
-        &self,
-        plant: SysInfraType,
-        sender: Sender<Message>
-    ) -> Result<(), RithmicApiError> {
-
-        let readers = self.plant_reader.clone();
-        let last_message_time = self.last_message_time.clone();
-
-        if let Some(read_stream) = readers.get(&plant) {
-            let read_stream = read_stream.value().clone();
-            tokio::task::spawn(async move {
-                let mut read_stream = read_stream.lock().await;
-                while let Some(message) = read_stream.next().await {
-                    match message {
-                        Ok(message) => {
-                            match sender.send(message).await {
-                                Ok(_) => {}
-                                Err(e) => eprintln!("error forwarding bytes: {}", e)
-                            }
-                            last_message_time.insert(plant.clone(), Utc::now());
-                        }
-                        Err(e) => {
-                            eprintln!("failed to receive message: {}", e)
-                        }
-                    }
-                }
-            });
-        }
-        Ok(())
-    }
 
     pub async fn start_heartbeat(
         &self,
@@ -347,12 +349,6 @@ impl RithmicApiClient {
             usecs: None,
         };
         tokio::task::spawn(async move {
-            if let Err(e) = RithmicApiClient::send_message_with_writer(sender.clone(), &heart_beat, last_message.clone(), plant.clone()).await {
-                // Handle the error (log, retry, etc.)
-                eprintln!("Failed to send heartbeat: {}", e);
-            } else {
-                println!("Sent heart beat")
-            }
             loop {
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
@@ -364,14 +360,15 @@ impl RithmicApiClient {
                         } else {
                             println!("Sent heart beat")
                         }
+                        last_message.insert(plant.clone(), Utc::now());
                     }
                 }
-                sleep(heartbeat_interval - Duration::from_secs(1)).await;
+                sleep(heartbeat_interval - Duration::from_millis(500)).await;
             }
         });
     }
 
-    pub async fn deserialize_message<T: RithmicMessage + Default>(
+    pub async fn deserialize_message<T: ProstMessage + Default>(
         &self,
         message: Message
     ) -> Result<T, RithmicApiError> {
@@ -395,7 +392,7 @@ impl RithmicApiClient {
         }
     }
 
-    pub async fn send_message_with_writer<T: RithmicMessage>(
+    pub async fn send_message_with_writer<T: ProstMessage>(
         writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
         message: &T,
         last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>,
