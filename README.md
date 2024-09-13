@@ -35,7 +35,7 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
 }
 ```
-Step 3: Connect to the desired rithmic plant, get back a receiver which will receive the messages from the reader as the bytes from inside the received `Message::Binary(bytes)`.
+Step 3: Connect to the desired rithmic plant and return a receiver which will receive the messages from the reader as the bytes from inside the received `tungstenite::Message`.
 An event loop will start on the receiver side of the stream and a heartbeat will automatically be sent to keep the connection alive if no other messages have been sent.
 ```rust
 #[tokio::main]
@@ -50,19 +50,19 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
     
     // connect to plants
-    let mut ticker_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await.unwrap();
+    let mut ticker_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
     
-    let mut history_receiver: Receiver<T> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
+    let _history_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
-   
-    let mut order_receiver: Receiver<T> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
+    
+    let _order_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
     
-    let mut pnl_receiver: Receiver<T> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
+    let _pnl_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
     
-    let mut repo_receiver: Receiver<T> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
+    let _repo_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 }
 ```
@@ -78,7 +78,7 @@ async fn main() {
     let app_name = credentials.app_name.clone();
     
     // login to the ticker plant
-    let mut ticker_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await.unwrap();
+    let mut ticker_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     
     // check we connected, note this function will not automatically tell us if the websocket was disconnected after the initial connection
     if !rithmic_api.is_connected(SysInfraType::TickerPlant).await {
@@ -115,7 +115,7 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
 
     // Test connections
-    let mut ticker_receiver: Receiver<Vec<u8>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await.unwrap();
+    let mut ticker_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
 
     // Sleep to simulate some work

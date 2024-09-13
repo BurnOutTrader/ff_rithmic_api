@@ -13,6 +13,7 @@ use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::sleep;
+use tungstenite::Error;
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
@@ -135,7 +136,7 @@ impl RithmicApiClient {
         &self,
         plant: SysInfraType,
         buffer_size: usize
-    ) -> Result<Receiver<Vec<u8>>, RithmicApiError> {
+    ) -> Result<Receiver<Message>, RithmicApiError> {
 
         if plant as i32 > 5 {
             return Err(RithmicApiError::ClientErrorDebug("Incorrect value for rithmic SysInfraType".to_string()))
@@ -204,7 +205,7 @@ impl RithmicApiClient {
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
         self.plant_reader.insert(plant.clone(), Arc::new(Mutex::new(ws_reader)));
         self.start_heartbeat(plant).await;
-        let (sender, receiver) = channel::<Vec<u8>>(buffer_size);
+        let (sender, receiver) = channel::<Message>(buffer_size);
         self.fwd_receive_responses(plant, sender).await?;
         Ok(receiver)
     }
@@ -302,10 +303,12 @@ impl RithmicApiClient {
     pub async fn fwd_receive_responses(
         &self,
         plant: SysInfraType,
-        sender: Sender<Vec<u8>>
+        sender: Sender<Message>
     ) -> Result<(), RithmicApiError> {
+
         let readers = self.plant_reader.clone();
         let last_message_time = self.last_message_time.clone();
+
         if let Some(read_stream) = readers.get(&plant) {
             let read_stream = read_stream.value().clone();
             tokio::task::spawn(async move {
@@ -313,20 +316,16 @@ impl RithmicApiClient {
                 while let Some(message) = read_stream.next().await {
                     match message {
                         Ok(message) => {
-                            match message {
-                                Message::Binary(bytes) => {
-                                    // Create a cursor for reading the data
-                                    match sender.send(bytes).await {
-                                        Ok(_) => {}
-                                        Err(e) => eprintln!("error forwarding bytes: {}", e)
-                                    }
-                                }
-                                _ => {}
+                            match sender.send(message).await {
+                                Ok(_) => {}
+                                Err(e) => eprintln!("error forwarding bytes: {}", e)
                             }
-                        },
-                        Err(e) => eprintln!("{:?} Error receiving message: {}", plant, e)
+                            last_message_time.insert(plant.clone(), Utc::now());
+                        }
+                        Err(e) => {
+                            eprintln!("failed to receive message: {}", e)
+                        }
                     }
-                    last_message_time.insert(plant.clone(), Utc::now());
                 }
             });
         }
@@ -348,14 +347,22 @@ impl RithmicApiClient {
             usecs: None,
         };
         tokio::task::spawn(async move {
+            if let Err(e) = RithmicApiClient::send_message_with_writer(sender.clone(), &heart_beat, last_message.clone(), plant.clone()).await {
+                // Handle the error (log, retry, etc.)
+                eprintln!("Failed to send heartbeat: {}", e);
+            } else {
+                println!("Sent heart beat")
+            }
             loop {
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
-                    if Utc::now() >= *last_msg_time + heartbeat_interval {
+                    if Utc::now() >= *last_msg_time.value() + heartbeat_interval {
                         // Send heartbeat message
                         if let Err(e) = RithmicApiClient::send_message_with_writer(sender.clone(), &heart_beat, last_message.clone(), plant.clone()).await {
                             // Handle the error (log, retry, etc.)
                             eprintln!("Failed to send heartbeat: {}", e);
+                        } else {
+                            println!("Sent heart beat")
                         }
                     }
                 }
