@@ -131,8 +131,11 @@ pub async fn fwd_received_responses (
                             match template_id {
                                 // Assuming each message type has a unique template_id
                                 19 => {
-                                    if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
-                                        println!("Decoded as AccountRmsUpdates: {:?}", msg);
+                                    if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {   
+                                        println!("Decoded as ResponseHeartbeat: {:?}", msg);
+
+                                        //for the sake of the example I am breaking the loop early
+                                        break;
                                     }
                                 },
                                 // Add cases for other template_ids and corresponding message types
