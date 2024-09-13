@@ -3,11 +3,27 @@ This rithmic api was written for fund-forge, an algorithmic trading platform wri
 It is currently incomlete but will eventually contain full functionality for rithmic RProtocol api.
 
 ## Login and connect
-Step 1: Enter your api details provided by rithmic into the rithmic_credentials.toml \
+Step 1: Enter your api details provided by rithmic into the rithmic_credentials.toml, if the toml does not exist, then you can create new credentials and save them to a file \
 Step 2: Load credentials and create an instance of a RithmicApiClient:
 ```rust
 #[tokio::main]
 async fn main() {
+    // On first run create the credentials
+    let credentials = RithmicCredentials {
+        user: "".to_string(),
+        system_name: "".to_string(),
+        password: "".to_string(),
+        app_name: "".to_string(),
+        app_version: "1.0".to_string(),
+        aggregated_quotes: false,
+        template_version: "5.27".to_string(),
+        pem: String::from("rithmic_ssl_cert_auth_params.pem"),
+        base_url: "wss://rituz00100.rithmic.com:443".to_string()
+    };
+    
+    // Save credentials to file
+    credentials.save_credentials_to_file("rithmic_credentials.toml").unwrap();
+
     // Define the file path for credentials
     let file_path = String::from("rithmic_credentials.toml".to_string());
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
