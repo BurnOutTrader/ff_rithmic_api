@@ -28,7 +28,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     rithmic_api.connect_and_login(SysInfraType::PnlPlant).await?;
     assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
     rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
-    assert!(rithmic_api.is_connected(&SysInfraType::RepositoryPlant).await);
+    assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 
 
     /// send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
