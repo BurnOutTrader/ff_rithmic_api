@@ -77,7 +77,7 @@ pub async fn handle_received_responses(
 ) -> Result<(), RithmicApiError> {
     //tokio::task::spawn(async move {
         while let Some(message) = reader.next().await {
-            println!("{:?}", message);
+            println!("Message received: {:?}", message);
             match message {
                 Ok(message) => {
                     match message {
