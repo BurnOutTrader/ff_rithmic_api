@@ -9,8 +9,8 @@ I will hard code the responses and the template_id's into a unique `fn fwd_recei
 All possible proto responses are already compiled into rust code and so they should be visible in your IDE by starting to type Response.
 
 ## Not Done
-No rate limiting.
-No Auto reconnect.
+No rate limiting. \
+No Auto reconnect. \
 Not ensuring SSL, we are using a  MaybeTlsStream, since the domain name is "wss://rituz00100.rithmic.com:443" I assume this is properly completing the handshake.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
