@@ -18,9 +18,9 @@ use crate::RithmicApiError;
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
     credentials: RithmicCredentials,
-    connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
-    plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
-    plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
+    pub connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
+    pub plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
+    pub plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
 }
 
 impl RithmicApiClient {
