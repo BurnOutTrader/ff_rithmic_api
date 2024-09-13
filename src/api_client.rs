@@ -279,7 +279,9 @@ impl RithmicApiClient {
     }
 
     /// Use this when we don't have any active subscriptions to persist the connection
-    pub async fn idle_heart_beat(&self) {
+    pub async fn idle_heart_beat(
+        &self
+    ) {
         // Heartbeats
         /* Heartbeats responses from the server are a way of monitoring the communication link between client and server.
         Upon making a successful login to the Rithmic Infrastructure, clients are expected to send at least a heartbeat request
