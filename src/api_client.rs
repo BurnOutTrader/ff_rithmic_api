@@ -1,6 +1,5 @@
 use std::io::{Cursor};
 use prost::{Message as RithmicMessage};
-use tokio::io::{AsyncReadExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
@@ -81,12 +80,12 @@ impl RithmicApiClient {
 
                 // Read the 4-byte length header
                 let mut length_buf = [0u8; 4];
-                tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).map_err(|e| Box::new(e) as Box<dyn Error>).await;
+                let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).map_err(|e| Box::new(e) as Box<dyn Error>).await;
                 let length = u32::from_be_bytes(length_buf) as usize;
 
                 // Read the Protobuf message
                 let mut message_buf = vec![0u8; length];
-                tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).map_err(|e| Box::new(e) as Box<dyn Error>).await;
+                tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).map_err(|e| Box::new(e) as Box<dyn Error>).await.unwrap();
 
                 // Decode the Protobuf message
                 return match T::decode(&message_buf[..]).map_err(|e| Box::new(e) as Box<dyn Error>) {
@@ -157,7 +156,7 @@ impl RithmicApiClient {
         RithmicApiClient::send_single_protobuf_message(&mut stream, &login_request).await?;
 
         // Login Response 11 From Server
-        let message: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
+        let _: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
         //println!("{:?}", message);
 
         let (ws_writer, ws_reader) = stream.split();
@@ -204,12 +203,12 @@ impl RithmicApiClient {
         };
         self.send_message_split_streams(&plant, &logout_request).await?;
 
-        let  (_, mut ws_writer) = match self.plant_writer.remove(&plant) {
+        let  (_, ws_writer) = match self.plant_writer.remove(&plant) {
             None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
-            Some(mut writer) => writer
+            Some(writer) => writer
         };
 
-        let  (_, mut ws_reader) = match self.plant_reader.remove(&plant) {
+        let  (_, ws_reader) = match self.plant_reader.remove(&plant) {
             None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
             Some(reader) => reader
         };

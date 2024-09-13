@@ -19,7 +19,7 @@ pub struct RithmicCredentials {
 impl RithmicCredentials {
     pub fn save_credentials_to_file(&self, file_path: &str) -> io::Result<()> {
         // Convert the credentials to TOML string
-        let toml_string = toml::to_string(self.clone()).expect("Failed to serialize credentials");
+        let toml_string = toml::to_string(self).expect("Failed to serialize credentials");
 
         // Write the TOML string to the file
         let mut file = File::create(file_path)?;

@@ -31,14 +31,14 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 
 
-    /// send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
+    // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
     let heart_beat = RequestHeartbeat {
         template_id: 18,
         user_msg: vec![format!("{} Testing heartbeat", app_name)],
         ssboe: None,
         usecs: None,
     };
-    let send_message = rithmic_api.send_message_split_streams(&SysInfraType::TickerPlant, &heart_beat).await?;
+    let _ = rithmic_api.send_message_split_streams(&SysInfraType::TickerPlant, &heart_beat).await?;
 
     // Sleep to simulate some work
     sleep(Duration::from_secs(5)).await;
