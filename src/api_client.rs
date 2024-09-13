@@ -6,6 +6,8 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use std::error::Error;
 use std::sync::{Arc};
+use std::time::Duration;
+use ahash::AHashMap;
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
@@ -20,6 +22,8 @@ pub struct RithmicApiClient {
     connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
     pub plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
     pub plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
+    heart_beat_intervals: Arc<RwLock<AHashMap<SysInfraType, Duration>>>,
+    last_message_time: Arc<RwLock<AHashMap<SysInfraType, Duration>>>
 }
 
 impl RithmicApiClient {
@@ -31,6 +35,8 @@ impl RithmicApiClient {
             connected_plant: Default::default(),
             plant_writer: Arc::new(DashMap::new()),
             plant_reader: Arc::new(DashMap::new()),
+            heart_beat_intervals: Arc::new(Default::default()),
+            last_message_time: Arc::new(Default::default()),
         }
     }
 
