@@ -68,7 +68,6 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Due to the generic type T we cannot call this function directly on main.
 /// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 pub async fn handle_received_responses(
     client: &RithmicApiClient,
