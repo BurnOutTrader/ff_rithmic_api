@@ -20,10 +20,16 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test connections
     rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
     rithmic_api.connect_and_login(SysInfraType::HistoryPlant).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
     rithmic_api.connect_and_login(SysInfraType::OrderPlant).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
     rithmic_api.connect_and_login(SysInfraType::PnlPlant).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
     rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
+    assert!(rithmic_api.is_connected(&SysInfraType::RepositoryPlant).await);
+
 
     /// send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
     let heart_beat = RequestHeartbeat {

@@ -70,6 +70,11 @@ async fn main() {
     // login to the ticker plant
     rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
     
+    // check we connected, note this function will not automatically tell us if the websocket was disconnected after the initial connection
+    if !rithmic_api.is_connected(SysInfraType::TickerPlant).await {
+        return
+    }
+    
     /// send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
     let heart_beat = RequestHeartbeat {
         template_id: 18,

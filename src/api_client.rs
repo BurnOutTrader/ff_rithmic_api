@@ -18,7 +18,7 @@ use crate::RithmicApiError;
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
     credentials: RithmicCredentials,
-    pub connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
+    connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
     pub plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
     pub plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
 }
@@ -33,6 +33,19 @@ impl RithmicApiClient {
         }
     }
 
+    // This function does not check if the connection is mainatained, only that it was established initially.
+    pub async fn is_connected(&self, plant: SysInfraType) -> bool {
+        self.connected_plant.read().await.contains(&plant)
+    }
+
+    /// This function does not safely disconnect from rithmic, it simply dumps the existing references to the stream.
+    pub async fn register_disconnect(&self, plant: SysInfraType) {
+        self.connected_plant.write().await.retain(|x|*x != plant);
+        self.plant_writer.remove(&plant);
+        self.plant_reader.remove(&plant);
+    }
+
+    /// only used to register and login before splitting the stream.
     async fn send_single_protobuf_message<T: RithmicMessage>(stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>, message: &T) -> Result<(), RithmicApiError> {
         let mut buf = Vec::new();
 
@@ -51,6 +64,7 @@ impl RithmicApiClient {
         }
     }
 
+    /// Used to receive system and login response before splitting the stream.
     async fn read_single_protobuf_message<T: RithmicMessage + Default>(
         stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>
     ) -> Result<T, RithmicApiError> {
@@ -84,6 +98,7 @@ impl RithmicApiClient {
         Err(RithmicApiError::ServerErrorDebug("No valid message received".to_string()))
     }
 
+    /// Connect to the desired plant and sign in with your credentials.
     pub async fn connect_and_login(&self, plant: SysInfraType) -> Result<(), RithmicApiError> {
         if plant as i32 > 5 {
             return Err(RithmicApiError::ClientErrorDebug("Incorrect value for rithmic SysInfraType".to_string()))
@@ -152,6 +167,7 @@ impl RithmicApiClient {
         Ok(())
     }
 
+    /// Send a message on the write half of the plant stream.
     pub async fn send_message_split_streams<T: RithmicMessage>(&self, plant: &SysInfraType, message: &T) -> Result<(), RithmicApiError> {
         let mut buf = Vec::new();
 
@@ -176,6 +192,7 @@ impl RithmicApiClient {
         }
     }
 
+    /// Signs out of rithmic with the specific plant safely shuts down the web socket. removing references from our api object.
     pub async fn shutdown_split_websocket(
         &self,
         plant: SysInfraType
