@@ -60,7 +60,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     handle_received_responses(&rithmic_api, ticker_receiver, SysInfraType::TickerPlant).await?;
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
-    sleep(Duration::from_secs(200));
+
     // Logout and Shutdown all connections
     rithmic_api.shutdown_all().await?;
 

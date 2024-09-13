@@ -84,7 +84,6 @@ async fn main() {
     };
     // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
-    sleep(Duration::from_secs(200));
     
     handle_received_responses(&rithmic_api, ticker_receiver, SysInfraType::TickerPlant).await?;
     
