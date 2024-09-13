@@ -1,7 +1,7 @@
 use std::io::Cursor;
 use prost::encoding::{decode_key, decode_varint, WireType};
 
-
+/// Dynamically get the template_id field form a generic type T.
 pub fn extract_template_id(bytes: &[u8]) -> Option<i32> {
     let mut cursor = Cursor::new(bytes);
     while let Ok((field_number, wire_type)) = decode_key(&mut cursor) {
