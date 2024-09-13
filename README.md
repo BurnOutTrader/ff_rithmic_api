@@ -4,8 +4,7 @@ This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/f
 The api is currently incomplete but will eventually contain full functionality for rithmic RProtocol api. 
 
 ## Work in Progress
-Messages can be cast to the correct concrete type by using `fn extract_template_id()`, the problem is that to call this fn we need to specify a token concrete type.
-It might be easier to build you own custom implementation of RithmicApiClient::fwd_receive_responses() and convert the concrete messages into platform specific messages and fwd to your platform.
+Messages can be cast to the correct concrete type by using `fn extract_template_id()` then disassembled, converted or otherwise handled in your own way.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
 ## Login and connect
@@ -36,8 +35,7 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
 }
 ```
-Step 3: Connect to the desired rithmic plant and return a receiver which will receive the messages from the reader as the bytes from inside the received `tungstenite::Message`.
-An event loop will start on the receiver side of the stream and a heartbeat will automatically be sent to keep the connection alive if no other messages have been sent.
+Step 3: Connect to a plant and the receiving half of the WebSocket for the specific plant will be returned
 ```rust
 #[tokio::main]
 async fn main() {
@@ -50,87 +48,118 @@ async fn main() {
     //create api instance
     let rithmic_api = RithmicApiClient::new(credentials);
     
-    // connect to plants
-    let mut ticker_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
+    // connect to plants and get the receiving half of the WebSocket for the specific plant returned
+    let mut ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
-    
-    let _history_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
+
+    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
-    
-    let _order_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
+
+    let _order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
-    
-    let _pnl_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
+
+    let _pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
-    
-    let _repo_receiver: Receiver<Message> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
+
+    let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 }
 ```
 ## Parsing and Reading Messages
-We might have to do this directly in the fwd_receive_responses function I am not sure yet if we can call this receive function without specifying a concrete type.
-It might be easier to just make your own implementation of fwd_receive_responses and send messages as concrete types.
+We can use the receiver of the connection to receive the Prost::Message from rithmic anywhere in our code base.
+To send messages to rithmic we will need a reference to the specific `RithmicApiClient` instance.
+We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
 ```rust
+#[tokio::main]
+async fn main() {
+    // Send a message to rithmic
+    // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
+    let heart_beat_request = RequestHeartbeat {
+        template_id: 18,
+        user_msg: vec![format!("{} Testing heartbeat", app_name)],
+        ssboe: None,
+        usecs: None,
+    };
+    // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
+    let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
+    sleep(Duration::from_secs(200));
 
-/// we use extract_template_id() to get the template id using the field_number 154467, then we map to teh concrete type and handle that message
-pub async fn receive<T: ProstMessage + std::default::Default>(mut receiver: Receiver<Message>)   {
-    loop {
-        if let Some( message) = receiver.recv().await {
-            println!("{}", message);
-            match message {
-                Message::Text(text) => {
-                    println!("{}", text)
-                }
-                Message::Binary(bytes) => {
-                    //messages will be forwarded here
-                    let mut cursor = Cursor::new(bytes);
-                    // Read the 4-byte length header
-                    let mut length_buf = [0u8; 4];
-                    let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
-                    let length = u32::from_be_bytes(length_buf) as usize;
-                    println!("Length: {}", length);
+    // Shutdown all connections
+    rithmic_api.shutdown_all().await?;
+    
+    Ok(())
+}
 
-                    // Read the Protobuf message
-                    let mut message_buf = vec![0u8; length];
 
-                    match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
-                        Ok(_) => {}
-                        Err(e) => eprintln!("Failed to read_extract message: {}", e)
+/// Due to the generic type T we cannot call this function directly on main.
+/// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
+pub async fn fwd_received_responses (
+    mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    plant: SysInfraType,
+) -> Result<(), RithmicApiError> {
+    while let Some(message) = reader.next().await {
+        match message {
+            Ok(message) => {
+                match message {
+                    Message::Text(text) => {
+                        println!("{}", text)
                     }
+                    Message::Binary(bytes) => {
+                        //messages will be forwarded here
+                        let mut cursor = Cursor::new(bytes);
+                        // Read the 4-byte length header
+                        let mut length_buf = [0u8; 4];
+                        let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
+                        let length = u32::from_be_bytes(length_buf) as usize;
+                        println!("Length: {}", length);
 
-                    if let Some(template_id) = extract_template_id(&message_buf) {
-                        println!("Extracted template_id: {}", template_id);
+                        // Read the Protobuf message
+                        let mut message_buf = vec![0u8; length];
 
-                        // Now you can use the template_id to determine which type to decode into
-                        match template_id {
-                            19 => {
-                                if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
-                                    println!("Decoded as AccountRmsUpdates: {:?}", msg);
-                                }
-                            },
-                            // Add cases for other template_ids and corresponding message types
-                            _ => println!("Unknown template_id: {}", template_id),
+                        match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
+                            Ok(_) => {}
+                            Err(e) => eprintln!("Failed to read_extract message: {}", e)
                         }
-                    } else {
-                        println!("Failed to extract template_id");
+
+                        if let Some(template_id) = extract_template_id(&message_buf) {
+                            println!("Extracted template_id: {}", template_id);
+                            // Now you can use the template_id to determine which type to decode into
+                            match template_id {
+                                // Assuming each message type has a unique template_id
+                                19 => {
+                                    if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
+                                        println!("Decoded as AccountRmsUpdates: {:?}", msg);
+                                    }
+                                },
+                                // Add cases for other template_ids and corresponding message types
+                                _ => println!("Unknown template_id: {}", template_id),
+                            }
+                        } else {
+                            println!("Failed to extract template_id");
+                        }
+                    }
+                    Message::Ping(ping) => {
+                        println!("{:?}", ping)
+                    }
+                    Message::Pong(pong) => {
+                        println!("{:?}", pong)
+                    }
+                    Message::Close(close) => {
+                        println!("{:?}", close)
+                    }
+                    Message::Frame(frame) => {
+                        println!("{}", frame)
                     }
                 }
-                Message::Ping(ping) => {
-                    println!("{:?}", ping)
-                }
-                Message::Pong(pong) => {
-                    println!("{:?}", pong)
-                }
-                Message::Close(close) => {
-                    println!("{:?}", close)
-                }
-                Message::Frame(frame) => {
-                    println!("{}", frame)
-                }
+            }
+            Err(e) => {
+                eprintln!("failed to receive message: {}", e)
             }
         }
     }
+    Ok(())
 }
+
 ```
 
 Step 4: Send messages to the desired plant over the `write half` of the plant websocket connection.
@@ -144,7 +173,7 @@ async fn main() {
     let app_name = credentials.app_name.clone();
     
     // login to the ticker plant
-    let mut ticker_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
+    let mut ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     
     // check we connected, note this function will not automatically tell us if the websocket was disconnected after the initial connection
     if !rithmic_api.is_connected(SysInfraType::TickerPlant).await {
@@ -181,7 +210,7 @@ async fn main() {
     let rithmic_api = RithmicApiClient::new(credentials);
 
     // Test connections
-    let mut ticker_receiver: Receiver<Message> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
+    let mut ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
 
     // Sleep to simulate some work
@@ -191,7 +220,8 @@ async fn main() {
     rithmic_api.shutdown_all().await?;
 
     // or Logout and Shutdown a single connection
-    rithmic_api.shutdown_split_websocket(SysInfraType::TickerPlant).await?;
+    rithmic_api.shutdown_plant(SysInfraType::TickerPlant).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await == false);
     
     Ok(())
 }

@@ -5,14 +5,12 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc};
-use std::time::Duration;
+use std::time::{Duration};
 use ahash::AHashMap;
-use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::time::sleep;
+use tokio::time::{sleep, Instant};
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
@@ -29,14 +27,11 @@ pub struct RithmicApiClient {
     /// The writer half of the websocket for the SysInfraType
     plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
 
-    /// The reader half of the websocket for the SysInfraType
-    plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
-
     /// The heartbeat intervals before time out. this was specified on logging in
     heart_beat_intervals: Arc<RwLock<AHashMap<SysInfraType, Duration>>>,
 
     /// The time the last message was sent, this is used to determine if we need to send a heartbeat.
-    last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>,
+    last_message_time: Arc<DashMap<SysInfraType, Instant>>,
 }
 
 impl RithmicApiClient {
@@ -47,7 +42,6 @@ impl RithmicApiClient {
             credentials,
             connected_plant: Default::default(),
             plant_writer: Arc::new(DashMap::new()),
-            plant_reader: Arc::new(DashMap::new()),
             heart_beat_intervals: Arc::new(Default::default()),
             last_message_time: Arc::new(Default::default()),
         }
@@ -76,7 +70,6 @@ impl RithmicApiClient {
     ) {
         self.connected_plant.write().await.retain(|x|*x != plant);
         self.plant_writer.remove(&plant);
-        self.plant_reader.remove(&plant);
     }
 
     /// only used to register and login before splitting the stream.
@@ -135,7 +128,7 @@ impl RithmicApiClient {
         &self,
         plant: SysInfraType,
         buffer_size: usize
-    ) -> Result<Receiver<Message>, RithmicApiError> {
+    ) -> Result<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>, RithmicApiError> {
 
         if plant as i32 > 5 {
             return Err(RithmicApiError::ClientErrorDebug("Incorrect value for rithmic SysInfraType".to_string()))
@@ -202,44 +195,8 @@ impl RithmicApiClient {
         let (ws_writer, ws_reader) = stream.split();
         self.connected_plant.write().await.push(plant.clone());
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
-        self.plant_reader.insert(plant.clone(), Arc::new(Mutex::new(ws_reader)));
         self.start_heartbeat(plant).await;
-        let (sender, receiver) = channel::<Message>(buffer_size);
-        self.fwd_receive_responses(plant, sender).await?;
-        Ok(receiver)
-    }
-
-    pub async fn fwd_receive_responses (
-        &self,
-        plant: SysInfraType,
-        sender: Sender<Message>
-    ) -> Result<(), RithmicApiError> {
-
-        let readers = self.plant_reader.clone();
-        let last_message_time = self.last_message_time.clone();
-
-        if let Some(read_stream) = readers.get(&plant) {
-            let read_stream = read_stream.value().clone();
-            tokio::task::spawn(async move {
-                let mut read_stream = read_stream.lock().await;
-                while let Some(message) = read_stream.next().await {
-                    match message {
-                        Ok(message) => {
-                            println!("message: {}", message);
-                            match sender.send(message).await {
-                                Ok(_) => {}
-                                Err(e) => eprintln!("error forwarding bytes: {}", e)
-                            }
-                            last_message_time.insert(plant.clone(), Utc::now());
-                        }
-                        Err(e) => {
-                            eprintln!("failed to receive message: {}", e)
-                        }
-                    }
-                }
-            });
-        }
-        Ok(())
+        Ok(ws_reader)
     }
 
     /// Send a message on the write half of the plant stream.
@@ -264,16 +221,18 @@ impl RithmicApiClient {
             Some(writer) => writer
         };
 
-        self.last_message_time.insert(plant.clone(), Utc::now());
         let mut writer = writer.value().lock().await;
         match writer.send(Message::Binary(prefixed_msg)).await {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                self.last_message_time.insert(plant.clone(), Instant::now());
+                Ok(())
+            },
             Err(e) => Err(RithmicApiError::ServerErrorDebug(format!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)))
         }
     }
 
     /// Signs out of rithmic with the specific plant safely shuts down the web socket. removing references from our api object.
-    pub async fn shutdown_split_websocket(
+    pub async fn shutdown_plant(
         &self,
         plant: SysInfraType
     ) -> Result<(), RithmicApiError> {
@@ -289,24 +248,10 @@ impl RithmicApiClient {
             Some(writer) => writer
         };
 
-        let  (_, ws_reader) = match self.plant_reader.remove(&plant) {
-            None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
-            Some(reader) => reader
-        };
-
         // Send a close frame using the writer
         let mut ws_writer= ws_writer.lock().await;
         ws_writer.send(Message::Close(None)).await.map_err(RithmicApiError::WebSocket)?;
 
-        // Drain the reader to ensure the connection closes properly
-        let mut ws_reader = ws_reader.lock().await;
-        while let Some(msg) = ws_reader.next().await {
-            match msg {
-                Ok(Message::Close(_)) => break, // Close confirmed by the server
-                Ok(_) => continue,              // Ignore other messages
-                Err(e) => return  Err(RithmicApiError::ServerErrorDebug(format!("Failed safely shutdown stream: {}", e)))
-            }
-        }
         self.connected_plant.write().await.retain(|x| *x != plant);
 
         println!("Safely shutdown rithmic split stream");
@@ -321,7 +266,7 @@ impl RithmicApiClient {
         let connected_plant = self.connected_plant.read().await.clone();
         let mut results = vec![];
         for plant in connected_plant {
-            results.push(RithmicApiClient::shutdown_split_websocket(self, plant.clone()).await);
+            results.push(RithmicApiClient::shutdown_plant(self, plant.clone()).await);
         }
         for result in results {
             match result {
@@ -332,7 +277,6 @@ impl RithmicApiClient {
         Ok(())
     }
 
-
     pub async fn start_heartbeat(
         &self,
         plant: SysInfraType,
@@ -340,26 +284,40 @@ impl RithmicApiClient {
         // Interval for heartbeat checks
         let heartbeat_interval = self.heart_beat_intervals.read().await.get(&plant).unwrap().clone();
         let last_message = self.last_message_time.clone();
-        let sender = self.plant_writer.get(&plant).unwrap().clone();
-        let heart_beat = RequestHeartbeat {
+        let writer = self.plant_writer.get(&plant).unwrap().clone();
+        let heart_beat_request = RequestHeartbeat {
             template_id: 18,
             user_msg: vec![],
             ssboe: None,
             usecs: None,
         };
+        let mut buf = Vec::new();
+        match heart_beat_request.encode(&mut buf) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Failed to encode RithmicMessage: {}", e);
+                return;
+            }
+        }
+
+        // we can create a reusable buffer of the heartbeat message, so we don't need to recreate it each time.
+        let length = buf.len() as u32;
+        let mut prefixed_msg = length.to_be_bytes().to_vec();
+        prefixed_msg.extend(buf);
+
+        let last_message_time = self.last_message_time.clone();
         tokio::task::spawn(async move {
             loop {
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
-                    if Utc::now() >= *last_msg_time.value() + heartbeat_interval {
+                    if Instant::now() >= *last_msg_time.value() + heartbeat_interval {
+                        let mut sender = writer.lock().await;
                         // Send heartbeat message
-                        if let Err(e) = RithmicApiClient::send_message_with_writer(sender.clone(), &heart_beat, last_message.clone(), plant.clone()).await {
-                            // Handle the error (log, retry, etc.)
-                            eprintln!("Failed to send heartbeat: {}", e);
-                        } else {
-                            println!("Sent heart beat")
+                        match sender.send(Message::Binary(prefixed_msg.clone())).await {
+                            Ok(_) => {},
+                            Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
                         }
-                        last_message.insert(plant.clone(), Utc::now());
+                        last_message_time.insert(plant, Instant::now());
                     }
                 }
                 sleep(heartbeat_interval - Duration::from_millis(500)).await;
@@ -388,31 +346,6 @@ impl RithmicApiClient {
             T::decode(&message_buf[..]).map_err(RithmicApiError::ProtobufDecode)
         } else {
             Err(RithmicApiError::ServerErrorDebug("Received non-binary message".to_string()))
-        }
-    }
-
-    pub async fn send_message_with_writer<T: ProstMessage>(
-        writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
-        message: &T,
-        last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>,
-        plant: SysInfraType
-    ) -> Result<(), RithmicApiError> {
-        let mut buf = Vec::new();
-
-        match message.encode(&mut buf) {
-            Ok(_) => {}
-            Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to encode RithmicMessage: {}", e)))
-        }
-
-        let length = buf.len() as u32;
-        let mut prefixed_msg = length.to_be_bytes().to_vec();
-        prefixed_msg.extend(buf);
-
-        last_message_time.insert(plant, Utc::now());
-        let mut writer = writer.lock().await;
-        match writer.send(Message::Binary(prefixed_msg)).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(RithmicApiError::ServerErrorDebug(format!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)))
         }
     }
 }
