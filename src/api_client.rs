@@ -8,13 +8,14 @@ use std::error::Error;
 use std::sync::{Arc};
 use std::time::Duration;
 use ahash::AHashMap;
+use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
-use crate::RithmicApiError;
+use crate::errors::RithmicApiError;
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
@@ -23,7 +24,7 @@ pub struct RithmicApiClient {
     pub plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
     pub plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
     heart_beat_intervals: Arc<RwLock<AHashMap<SysInfraType, Duration>>>,
-    last_message_time: Arc<RwLock<AHashMap<SysInfraType, Duration>>>
+    last_message_time: Arc<RwLock<AHashMap<SysInfraType, DateTime<Utc>>>>
 }
 
 impl RithmicApiClient {
@@ -73,10 +74,7 @@ impl RithmicApiClient {
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
 
-        match stream.send(Message::Binary(prefixed_msg)).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(RithmicApiError::ServerErrorDebug(format!("Failed to send RithmicMessage: {}", e)))
-        }
+        stream.send(Message::Binary(prefixed_msg)).await.map_err(|e| RithmicApiError::WebSocket(e))
     }
 
     /// Used to receive system and login response before splitting the stream.
@@ -96,7 +94,7 @@ impl RithmicApiClient {
 
                 // Read the 4-byte length header
                 let mut length_buf = [0u8; 4];
-                let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).map_err(|e| Box::new(e) as Box<dyn Error>).await;
+                let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
                 let length = u32::from_be_bytes(length_buf) as usize;
 
                 // Read the Protobuf message
@@ -104,9 +102,9 @@ impl RithmicApiClient {
                 tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io)?;
 
                 // Decode the Protobuf message
-                return match T::decode(&message_buf[..]).map_err(|e| Box::new(e) as Box<dyn Error>) {
+                return match T::decode(&message_buf[..]) {
                     Ok(decoded_msg) => Ok(decoded_msg),
-                    Err(e) => Err(RithmicApiError::ServerErrorDebug(format!("Failed to decode RithmicMessage: {}", e)))
+                    Err(e) => Err(RithmicApiError::ProtobufDecode(e)), // Use the ProtobufDecode variant
                 }
             }
         }

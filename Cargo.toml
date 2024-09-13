@@ -11,9 +11,9 @@ ahash ="*"
 prost ="*"
 prost-build = "0.13.2"
 tokio-tungstenite = { version = "0.23.1", features = ["stream", "native-tls"] }
-tungstenite = "0.24.0"
 futures-util = "0.3.30"
 url = "2.5.2"
 tokio =  { version = "*", features = ["full"] }
 chrono = "*"
 thiserror = "*"
+tungstenite = "0.23.0"

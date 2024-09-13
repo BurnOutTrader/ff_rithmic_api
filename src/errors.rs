@@ -1,0 +1,22 @@
+use thiserror::Error;
+use std::io;
+use tungstenite::Error as WsError;
+use prost::DecodeError;
+
+#[derive(Debug, Error)]
+pub enum RithmicApiError {
+    #[error("Server error: {0}")]
+    ServerErrorDebug(String),
+
+    #[error("Client error: {0}")]
+    ClientErrorDebug(String),
+
+    #[error("IO error occurred: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("WebSocket error occurred: {0}")]
+    WebSocket(#[from] WsError),
+
+    #[error("Protobuf decode error: {0}")]
+    ProtobufDecode(#[from] DecodeError),
+}
