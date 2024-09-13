@@ -3,8 +3,10 @@ This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/f
 
 The api is currently incomplete but will eventually contain full functionality for rithmic RProtocol api. 
 
-## Work in Progress
-Messages can be cast to the correct concrete type by using `fn extract_template_id()` then disassembled, converted or otherwise handled in your own way.
+## Complete
+This Api allows complete dynacmic functionality for all plants and Response types.
+I will hard code the responses and the template_id's into a unique `fn fwd_received_responses()` for each rithmic plant, so that they can just be copy pasted in the future.
+All possible proto responses are already compiled into rust code and so they should be visible in your IDE but starting to type Response.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
 ## Login and connect
