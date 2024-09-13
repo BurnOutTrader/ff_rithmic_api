@@ -11,6 +11,8 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
+use tokio::sync::mpsc::{channel, Receiver};
+use crate::broadcaster::{Broadcaster, SubscriberName};
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
@@ -18,12 +20,26 @@ use crate::errors::RithmicApiError;
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
+    /// Credentials used for this instance of the api. we can have multiple instances for different brokers.
     credentials: RithmicCredentials,
+
+    /// A list of the SysInfraType which we have logged into
     connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
+
+    /// The writer half of the websocket for the SysInfraType
     plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
+
+    /// The reader half of the websocket for the SysInfraType
     plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
+
+    /// The heartbeat intervals before time out. this was specified on logging in
     heart_beat_intervals: Arc<RwLock<AHashMap<SysInfraType, Duration>>>,
-    last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>
+
+    /// The time the last message was sent, this is used to determine if we need to send a heartbeat.
+    last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>,
+
+    /// Broadcasters for specific SysInfraType subscribers to subscribe to incoming messages from the read half of the websocket
+    broadcasters: Arc<DashMap<SysInfraType, Broadcaster>>
 }
 
 impl RithmicApiClient {
@@ -37,6 +53,22 @@ impl RithmicApiClient {
             plant_reader: Arc::new(DashMap::new()),
             heart_beat_intervals: Arc::new(Default::default()),
             last_message_time: Arc::new(Default::default()),
+            broadcasters: Arc::new(Default::default()),
+        }
+    }
+
+    pub fn subscribe(&self, plant: SysInfraType, subscriber_name: SubscriberName, buffer_size: usize) -> Result<Receiver<Vec<u8>>, RithmicApiError> {
+        if let Some(broadcaster) = self.broadcasters.get(&plant) {
+            let receiver = broadcaster.value().subscribe(subscriber_name, buffer_size);
+            return Ok(receiver)
+        }
+        Err(RithmicApiError::ClientErrorDebug(format!("You have not connected to this web socket: {:?}, please use connect_and_login()", plant)))
+    }
+
+    /// Unsubscribe from further messages
+    pub fn unsubscribe(&self,plant: SysInfraType, subscriber_name: &SubscriberName) {
+        if let Some(broadcaster) = self.broadcasters.get(&plant) {
+            broadcaster.value().unsubscribe(subscriber_name);
         }
     }
 
@@ -197,6 +229,9 @@ impl RithmicApiClient {
         self.connected_plant.write().await.push(plant.clone());
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
         self.plant_reader.insert(plant.clone(), Arc::new(Mutex::new(ws_reader)));
+        if !self.broadcasters.contains_key(&plant) {
+            self.broadcasters.insert(plant.clone(), Broadcaster::new());
+        }
         Ok(())
     }
 
@@ -293,7 +328,7 @@ impl RithmicApiClient {
         _api_client: &Self,
         _plant: SysInfraType
     ) -> Result<(), RithmicApiError> {
-        /*   tokio::task::spawn(async move {
+     /*     tokio::task::spawn(async move {
                    while let Some(messages) = ws_reader.
            });*/
         Ok(())
