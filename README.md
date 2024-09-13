@@ -85,7 +85,7 @@ async fn main() {
     // we can send the message to the specified plant.
     let send_message = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
     
-    // we can get the reader or writer for the plant if we want to create our own functions for messaging, rather than using the provided type functions.
+    // we can get the reader or writer for the plant if we want to create our own functions for messaging, rather than using the associated type functions.
     // with the reader it will be better to just use an mspc channel to subscribe to the message stream. (when I code it)
     let reader: Option<Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>> = rithmic_api.get_reader(&SysInfraType::TickerPlant).await;
     if let Some(reader) = reader {
