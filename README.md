@@ -4,7 +4,8 @@ This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/f
 The api is currently incomplete but will eventually contain full functionality for rithmic RProtocol api. 
 
 ## Work in Progress
-Need to determine a way to dynamically decode messages without knowing the concrete types.
+Messages can be cast to the correct concrete type by using `fn extract_template_id()`, the problem is that to call this fn we need to specify a token concrete type.
+It might be easier to build you own custom implementation of RithmicApiClient::fwd_receive_responses() and convert the concrete messages into platform specific messages and fwd to your platform.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
 ## Login and connect
