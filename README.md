@@ -61,9 +61,13 @@ async fn main() {
 
     // Sleep to simulate some work
     sleep(Duration::from_secs(5)).await;
-
+    
     // Shutdown all connections
-    rithmic_api.shutdown_all().await?;
+    RithmicApiClient::shutdown_all(&rithmic_api).await?;
+
+    // or Logout and Shutdown a single connection
+    RithmicApiClient::shutdown_split_websocket(&rithmic_api, SysInfraType::TickerPlant).await?;
+    
     Ok(())
 }
 ```
