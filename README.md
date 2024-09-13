@@ -68,7 +68,7 @@ async fn main() {
 }
 ```
 ## Parsing and Reading Messages
-We can use the receiver of the websocket connection to receive the `Prost::Message`s from rithmic anywhere in our code base.
+We can use the receiver of the websocket connection to receive the `prost::Message`s from rithmic anywhere in our code base, Note that in the examples I am importing `use prost::{Message as ProstMessage};`.
 To send messages to rithmic we will only need a reference to the specific `RithmicApiClient` instance.
 We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
 ```rust
