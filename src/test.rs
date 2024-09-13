@@ -10,7 +10,7 @@ use prost::{Message as ProstMessage};
 use prost::encoding::{decode_key, decode_varint, WireType};
 use tokio::time::Instant;
 use tungstenite::Message;
-use crate::map::create_template_decoder_map;
+use crate::map::{create_template_decoder_map, extract_template_id};
 
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
@@ -48,7 +48,6 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     };
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
 
-    let map = create_template_decoder_map();
     receive::<ResponseHeartbeat>(ticker_receiver).await; //i think the key is to return a
     // Logout and Shutdown all connections
     rithmic_api.shutdown_all().await?;
@@ -120,30 +119,3 @@ pub async fn receive<T: ProstMessage + std::default::Default>(mut receiver: Rece
     }
 }
 
-fn extract_template_id(bytes: &[u8]) -> Option<i32> {
-    let mut cursor = Cursor::new(bytes);
-
-    while let Ok((field_number, wire_type)) = decode_key(&mut cursor) {
-        if field_number == 154467 && wire_type == WireType::Varint {
-            // We've found the template_id field
-            return decode_varint(&mut cursor).ok().map(|v| v as i32);
-        } else {
-            // Skip this field
-            match wire_type {
-                WireType::Varint => { let _ = decode_varint(&mut cursor); }
-                WireType::SixtyFourBit => { let _ = cursor.set_position(cursor.position() + 8); }
-                WireType::LengthDelimited => {
-                    if let Ok(len) = decode_varint(&mut cursor) {
-                        let _ = cursor.set_position(cursor.position() + len as u64);
-                    } else {
-                        return None; // Error decoding length
-                    }
-                }
-                WireType::StartGroup | WireType::EndGroup => {} // These are deprecated and shouldn't appear
-                WireType::ThirtyTwoBit => { let _ = cursor.set_position(cursor.position() + 4); }
-            }
-        }
-    }
-
-    None // template_id field not found
-}

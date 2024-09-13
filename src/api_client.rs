@@ -209,7 +209,6 @@ impl RithmicApiClient {
         Ok(receiver)
     }
 
-
     pub async fn fwd_receive_responses (
         &self,
         plant: SysInfraType,

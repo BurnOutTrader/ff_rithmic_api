@@ -66,6 +66,73 @@ async fn main() {
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 }
 ```
+## Parsing and Reading Messages
+We might have to do this directly in the fwd_receive_responses function I am not sure yet if we can call this receive function without specifying a concrete type.
+It might be easier to just make your own implementation of fwd_receive_responses and send messages as concrete types.
+```rust
+
+/// we use extract_template_id() to get the template id using the field_number 154467, then we map to teh concrete type and handle that message
+pub async fn receive<T: ProstMessage + std::default::Default>(mut receiver: Receiver<Message>)   {
+    let end_time = Instant::now() + Duration::from_secs(300); // 5 minutes from now
+    while Instant::now() < end_time {
+        if let Some( message) = receiver.recv().await {
+            println!("{}", message);
+            match message {
+                Message::Text(text) => {
+                    println!("{}", text)
+                }
+                Message::Binary(bytes) => {
+                    //messages will be forwarded here
+                    let mut cursor = Cursor::new(bytes);
+                    // Read the 4-byte length header
+                    let mut length_buf = [0u8; 4];
+                    let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
+                    let length = u32::from_be_bytes(length_buf) as usize;
+                    println!("Length: {}", length);
+
+                    // Read the Protobuf message
+                    let mut message_buf = vec![0u8; length];
+
+                    match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
+                        Ok(_) => {}
+                        Err(e) => eprintln!("Failed to read_extract message: {}", e)
+                    }
+
+                    if let Some(template_id) = extract_template_id(&message_buf) {
+                        println!("Extracted template_id: {}", template_id);
+
+                        // Now you can use the template_id to determine which type to decode into
+                        match template_id {
+                            // Assuming each message type has a unique template_id
+                            19 => {
+                                if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
+                                    println!("Decoded as AccountRmsUpdates: {:?}", msg);
+                                }
+                            },
+                            // Add cases for other template_ids and corresponding message types
+                            _ => println!("Unknown template_id: {}", template_id),
+                        }
+                    } else {
+                        println!("Failed to extract template_id");
+                    }
+                }
+                Message::Ping(ping) => {
+                    println!("{:?}", ping)
+                }
+                Message::Pong(pong) => {
+                    println!("{:?}", pong)
+                }
+                Message::Close(close) => {
+                    println!("{:?}", close)
+                }
+                Message::Frame(frame) => {
+                    println!("{}", frame)
+                }
+            }
+        }
+    }
+}
+```
 
 Step 4: Send messages to the desired plant over the `write half` of the plant websocket connection.
 ```rust
