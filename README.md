@@ -26,7 +26,7 @@ async fn main() {
         base_url: "wss://rituz00100.rithmic.com:443".to_string()
     };
     
-    // Save credentials to file
+    // Save credentials to file "rithmic_credentials.toml" is in the .git_ignore
     credentials.save_credentials_to_file("rithmic_credentials.toml").unwrap();
 
     // Define the file path for credentials
