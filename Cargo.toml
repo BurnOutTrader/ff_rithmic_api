@@ -1,0 +1,16 @@
+[package]
+name = "ff_rithmic_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.210", features = ["derive"] }
+toml = "*"
+dashmap ="*"
+prost ="*"
+prost-build = "0.13.2"
+tokio-tungstenite = { version = "*", features = ["rustls-tls", "tokio-native-tls", "connect", "native-tls", "stream"] }
+tungstenite = "*"
+futures-util = "*"
+url = "*"
+tokio =  { version = "*", features = ["full"] }
