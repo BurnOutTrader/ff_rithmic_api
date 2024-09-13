@@ -74,8 +74,7 @@ It might be easier to just make your own implementation of fwd_receive_responses
 
 /// we use extract_template_id() to get the template id using the field_number 154467, then we map to teh concrete type and handle that message
 pub async fn receive<T: ProstMessage + std::default::Default>(mut receiver: Receiver<Message>)   {
-    let end_time = Instant::now() + Duration::from_secs(300); // 5 minutes from now
-    while Instant::now() < end_time {
+    loop {
         if let Some( message) = receiver.recv().await {
             println!("{}", message);
             match message {
