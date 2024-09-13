@@ -38,7 +38,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         ssboe: None,
         usecs: None,
     };
-    let _ = rithmic_api.send_message_split_streams(&SysInfraType::TickerPlant, &heart_beat).await?;
+    let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
 
     // Sleep to simulate some work
     sleep(Duration::from_secs(5)).await;

@@ -10,6 +10,7 @@ use std::time::Duration;
 use ahash::AHashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use dashmap::mapref::one::Ref;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
 use crate::credentials::RithmicCredentials;
@@ -21,8 +22,8 @@ use crate::errors::RithmicApiError;
 pub struct RithmicApiClient {
     credentials: RithmicCredentials,
     connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
-    pub plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
-    pub plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
+    plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
+    plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
     heart_beat_intervals: Arc<RwLock<AHashMap<SysInfraType, Duration>>>,
     last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>
 }
@@ -38,6 +39,22 @@ impl RithmicApiClient {
             plant_reader: Arc::new(DashMap::new()),
             heart_beat_intervals: Arc::new(Default::default()),
             last_message_time: Arc::new(Default::default()),
+        }
+    }
+
+    /// get the writer for the specified plant
+    pub async fn get_writer(&self,  plant: &SysInfraType) -> Option<Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>> {
+        match self.plant_writer.get(plant) {
+            None => None,
+            Some(writer) => Some(writer.clone())
+        }
+    }
+
+    /// get the reader for the specified plant
+    pub async fn get_reader(&self,  plant: &SysInfraType) -> Option<Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>> {
+        match self.plant_reader.get(plant) {
+            None => None,
+            Some(reader) => Some(reader.clone())
         }
     }
 
@@ -186,7 +203,7 @@ impl RithmicApiClient {
     }
 
     /// Send a message on the write half of the plant stream.
-    pub async fn send_message_split_streams<T: RithmicMessage>(
+    pub async fn send_message<T: RithmicMessage>(
         &self,
         plant: &SysInfraType,
         message: &T
@@ -225,7 +242,7 @@ impl RithmicApiClient {
             template_id: 12,
             user_msg: vec![format!("{} Signing Out", self.credentials.app_name)],
         };
-        self.send_message_split_streams(&plant, &logout_request).await?;
+        self.send_message(&plant, &logout_request).await?;
 
         let  (_, ws_writer) = match self.plant_writer.remove(&plant) {
             None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
