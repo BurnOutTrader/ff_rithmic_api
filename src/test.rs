@@ -107,7 +107,6 @@ pub async fn handle_received_responses(
                                 println!("Extracted template_id: {}", template_id);
                                 // Now you can use the template_id to determine which type to decode into
                                 match template_id {
-                                    // Assuming each message type has a unique template_id
                                     19 => {
                                         if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
                                             println!("Decoded as AccountRmsUpdates: {:?}", msg);
