@@ -1,5 +1,5 @@
 # ff_rithmic_api
-This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/fund-forge), an algorithmic trading platform written in rust.
+This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/fund-forge), an algorithmic trading platform written in rust. (Launching once live testing is underway)
 It is currently incomlete but will eventually contain full functionality for rithmic RProtocol api.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
