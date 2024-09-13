@@ -93,12 +93,11 @@ impl RithmicApiClient {
             Ok((stream, response)) => (stream, response),
             Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to connect to rithmic: {}", e)))
         };
-
-        println!("Rithmic connection: {:?}", response);
+        println!("Rithmic connection established: {:?}", response);
         // Rithmic System Info Request 16 From Client
         let request = RequestRithmicSystemInfo {
             template_id: 16,
-            user_msg: vec!["Rust Fund Forge Signing In".to_string()],
+            user_msg: vec![format!("{} Signing In", self.credentials.app_name)],
         };
 
         RithmicApiClient::send_single_protobuf_message(&mut stream, &request).await?;
@@ -115,7 +114,7 @@ impl RithmicApiClient {
                 ));
             }
         };
-        println!("{}", rithmic_server_name);
+        //println!("{}", rithmic_server_name);
         stream.close(None).await.map_err(|e| Box::new(e) as Box<dyn Error>).unwrap();
 
         let (mut stream, _) = match connect_async(self.credentials.base_url.clone()).await {
@@ -144,7 +143,7 @@ impl RithmicApiClient {
 
         // Login Response 11 From Server
         let message: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
-        println!("{:?}", message);
+        //println!("{:?}", message);
 
         let (ws_writer, ws_reader) = stream.split();
         self.connected_plant.write().await.push(plant.clone());
@@ -153,7 +152,7 @@ impl RithmicApiClient {
         Ok(())
     }
 
-    async fn send_message_split_streams<T: RithmicMessage>(api_instance: &Self, plant: &SysInfraType, message: &T) -> Result<(), RithmicApiError> {
+    pub async fn send_message_split_streams<T: RithmicMessage>(&self, plant: &SysInfraType, message: &T) -> Result<(), RithmicApiError> {
         let mut buf = Vec::new();
 
         match message.encode(&mut buf) {
@@ -165,7 +164,7 @@ impl RithmicApiClient {
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
 
-        let writer = match api_instance.plant_writer.get(plant) {
+        let writer = match self.plant_writer.get(plant) {
             None => return Err(RithmicApiError::ClientErrorDebug(format!("You have not ran connect_and_login for this plant: {:?}", plant))),
             Some(writer) => writer
         };
@@ -178,22 +177,22 @@ impl RithmicApiClient {
     }
 
     pub async fn shutdown_split_websocket(
-        api_instance: &Self,
+        &self,
         plant: SysInfraType
     ) -> Result<(), RithmicApiError> {
         //Logout Request 12
         let logout_request = RequestLogout {
             template_id: 12,
-            user_msg: vec!["Rust Fund Forge Signing Out".to_string()],
+            user_msg: vec![format!("{} Signing Out", self.credentials.app_name)],
         };
-        RithmicApiClient::send_message_split_streams(&api_instance, &plant, &logout_request).await?;
+        self.send_message_split_streams(&plant, &logout_request).await?;
 
-        let  (_, mut ws_writer) = match api_instance.plant_writer.remove(&plant) {
+        let  (_, mut ws_writer) = match self.plant_writer.remove(&plant) {
             None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
             Some(mut writer) => writer
         };
 
-        let  (_, mut ws_reader) = match api_instance.plant_reader.remove(&plant) {
+        let  (_, mut ws_reader) = match self.plant_reader.remove(&plant) {
             None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
             Some(reader) => reader
         };
@@ -211,18 +210,18 @@ impl RithmicApiClient {
                 Err(e) => return  Err(RithmicApiError::ServerErrorDebug(format!("Failed safely shutdown stream: {}", e)))
             }
         }
-        api_instance.connected_plant.write().await.retain(|x| *x != plant);
+        self.connected_plant.write().await.retain(|x| *x != plant);
         println!("Safely shutdown rithmic split stream");
         Ok(())
     }
 
     /// Log out and shutdown all plant connections for the API instance
-    pub async fn shutdown_all(api_instance: &Self) -> Result<(), RithmicApiError> {
+    pub async fn shutdown_all(&self) -> Result<(), RithmicApiError> {
         println!("Logging out and shutting down all connections");
-        let connected_plant = api_instance.connected_plant.read().await.clone();
+        let connected_plant = self.connected_plant.read().await.clone();
         let mut results = vec![];
         for plant in connected_plant {
-            results.push(RithmicApiClient::shutdown_split_websocket(api_instance, plant.clone()).await);
+            results.push(RithmicApiClient::shutdown_split_websocket(self, plant.clone()).await);
         }
         for result in results {
             match result {
@@ -233,8 +232,9 @@ impl RithmicApiClient {
         Ok(())
     }
 
-    async fn manage_responses (
-        mut ws_writer: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
+    pub async fn manage_responses (
+        api_client: &Self,
+        plant: SysInfraType
     ) -> Result<(), RithmicApiError> {
         /*   tokio::task::spawn(async move {
                    while let Some(messages) = ws_reader.

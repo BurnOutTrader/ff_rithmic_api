@@ -36,7 +36,32 @@ async fn main() {
 }
 ```
 
-Step 4: When work is done, logout from all connections gracefully:
+Step 4: Send messages to the desired plant over the `write half` of the plant websocket connection.
+```rust
+async fn main() {
+    // Define the file path for credentials
+    let file_path = String::from("rithmic_credentials.toml".to_string());
+
+    // load credentials
+    let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
+    let app_name = credentials.app_name.clone();
+    
+    // login to the ticker plant
+    rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
+    
+    /// send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
+    let heart_beat = RequestHeartbeat {
+        template_id: 18,
+        user_msg: vec![format!("{} Testing heartbeat", app_name)],
+        ssboe: None,
+        usecs: None,
+    };
+    
+    let send_message = rithmic_api.send_message_split_streams(&SysInfraType::TickerPlant, &heart_beat).await?;
+}
+```
+
+Step 5: The connections are maintained in the api instance, when work is done, logout from all connections gracefully.
 ```rust
 #[tokio::main]
 async fn main() {
@@ -63,10 +88,10 @@ async fn main() {
     sleep(Duration::from_secs(5)).await;
     
     // Shutdown all connections
-    RithmicApiClient::shutdown_all(&rithmic_api).await?;
+    rithmic_api.shutdown_all().await?;
 
     // or Logout and Shutdown a single connection
-    RithmicApiClient::shutdown_split_websocket(&rithmic_api, SysInfraType::TickerPlant).await?;
+    rithmic_api.shutdown_split_websocket(SysInfraType::TickerPlant).await?;
     
     Ok(())
 }
