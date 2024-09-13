@@ -249,8 +249,8 @@ impl RithmicApiClient {
     }
 
     pub async fn manage_responses (
-        api_client: &Self,
-        plant: SysInfraType
+        _api_client: &Self,
+        _plant: SysInfraType
     ) -> Result<(), RithmicApiError> {
         /*   tokio::task::spawn(async move {
                    while let Some(messages) = ws_reader.
