@@ -12,7 +12,6 @@ use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::Message;
-use crate::map::{extract_template_id};
 
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,7 +58,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
 
-    handle_received_responses(ticker_receiver, SysInfraType::TickerPlant).await?; //i think the key is to return a
+    handle_received_responses(&rithmic_api, ticker_receiver, SysInfraType::TickerPlant).await?;
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
     sleep(Duration::from_secs(200));
     // Logout and Shutdown all connections
@@ -74,6 +73,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 /// Due to the generic type T we cannot call this function directly on main.
 /// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 pub async fn handle_received_responses(
+    client: &RithmicApiClient,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     _plant: SysInfraType,
 ) -> Result<(), RithmicApiError> {
@@ -103,7 +103,7 @@ pub async fn handle_received_responses(
                                 Err(e) => eprintln!("Failed to read_extract message: {}", e)
                             }
 
-                            if let Some(template_id) = extract_template_id(&message_buf) {
+                            if let Some(template_id) = client.extract_template_id(&message_buf) {
                                 println!("Extracted template_id: {}", template_id);
                                 // Now you can use the template_id to determine which type to decode into
                                 match template_id {

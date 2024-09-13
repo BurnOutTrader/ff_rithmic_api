@@ -15,6 +15,7 @@ use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
 use crate::errors::RithmicApiError;
+use prost::encoding::{decode_key, decode_varint, WireType};
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
@@ -347,5 +348,33 @@ impl RithmicApiClient {
         } else {
             Err(RithmicApiError::ServerErrorDebug("Received non-binary message".to_string()))
         }
+    }
+
+    /// Dynamically get the template_id field form a generic type T.
+    pub fn extract_template_id(&self, bytes: &[u8]) -> Option<i32> {
+        let mut cursor = Cursor::new(bytes);
+        while let Ok((field_number, wire_type)) = decode_key(&mut cursor) {
+            if field_number == 154467 && wire_type == WireType::Varint {
+                // We've found the template_id field
+                return decode_varint(&mut cursor).ok().map(|v| v as i32);
+            } else {
+                // Skip this field
+                match wire_type {
+                    WireType::Varint => { let _ = decode_varint(&mut cursor); }
+                    WireType::SixtyFourBit => { let _ = cursor.set_position(cursor.position() + 8); }
+                    WireType::LengthDelimited => {
+                        if let Ok(len) = decode_varint(&mut cursor) {
+                            let _ = cursor.set_position(cursor.position() + len as u64);
+                        } else {
+                            return None; // Error decoding length
+                        }
+                    }
+                    WireType::StartGroup | WireType::EndGroup => {} // These are deprecated and shouldn't appear
+                    WireType::ThirtyTwoBit => { let _ = cursor.set_position(cursor.position() + 4); }
+                }
+            }
+        }
+
+        None // template_id field not found
     }
 }

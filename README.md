@@ -66,8 +66,8 @@ async fn main() {
 }
 ```
 ## Parsing and Reading Messages
-We can use the receiver of the connection to receive the Prost::Message from rithmic anywhere in our code base.
-To send messages to rithmic we will need a reference to the specific `RithmicApiClient` instance.
+We can use the receiver of the websocket connection to receive the `Prost::Message`s from rithmic anywhere in our code base.
+To send messages to rithmic we will only need a reference to the specific `RithmicApiClient` instance.
 We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
 ```rust
 #[tokio::main]
@@ -83,7 +83,9 @@ async fn main() {
     // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
     sleep(Duration::from_secs(200));
-
+    
+    handle_received_responses(&rithmic_api, ticker_receiver, SysInfraType::TickerPlant).await?;
+    
     // Shutdown all connections
     rithmic_api.shutdown_all().await?;
     
@@ -92,8 +94,9 @@ async fn main() {
 
 
 /// Due to the generic type T we cannot call this function directly on main.
-/// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
+/// we use  RithmicApiClient.extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 pub async fn fwd_received_responses (
+    client: &RithmicApiClient,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     plant: SysInfraType,
 ) -> Result<(), RithmicApiError> {
@@ -121,7 +124,7 @@ pub async fn fwd_received_responses (
                             Err(e) => eprintln!("Failed to read_extract message: {}", e)
                         }
 
-                        if let Some(template_id) = extract_template_id(&message_buf) {
+                        if let Some(template_id) = client.extract_template_id(&message_buf) {
                             println!("Extracted template_id: {}", template_id);
                             // Now you can use the template_id to determine which type to decode into
                             match template_id {
