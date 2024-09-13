@@ -11,6 +11,7 @@ All possible proto responses are already compiled into rust code and so they sho
 ## Not Done
 No rate limiting.
 No Auto reconnect.
+Not assuring SSL, using MaybeTLS, since the domain name is "wss://rituz00100.rithmic.com:443" I assume this is properly completing the handshake.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
 ## Login and connect
