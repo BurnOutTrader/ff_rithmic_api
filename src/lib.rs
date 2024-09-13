@@ -1,18 +1,19 @@
 use std::error::Error;
-use std::fmt;
+use std::{fmt, io};
+use thiserror::Error;
 pub mod rithmic_proto_objects;
 pub mod api_client;
 pub mod credentials;
 pub mod test;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RithmicApiError {
+    #[error("Server error: {0}")]
     ServerErrorDebug(String),
-    ClientErrorDebug(String)
+
+    #[error("Client error: {0}")]
+    ClientErrorDebug(String),
+
+    #[error("IO error occurred: {0}")]
+    Io(#[from] io::Error),
 }
-impl fmt::Display for RithmicApiError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for RithmicApiError {}

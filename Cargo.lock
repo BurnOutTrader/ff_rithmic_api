@@ -253,6 +253,7 @@ dependencies = [
  "prost",
  "prost-build",
  "serde",
+ "thiserror",
  "tokio",
  "tokio-tungstenite",
  "toml",

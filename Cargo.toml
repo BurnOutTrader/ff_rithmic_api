@@ -16,3 +16,4 @@ futures-util = "0.3.30"
 url = "2.5.2"
 tokio =  { version = "*", features = ["full"] }
 chrono = "*"
+thiserror = "*"

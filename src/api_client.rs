@@ -101,7 +101,7 @@ impl RithmicApiClient {
 
                 // Read the Protobuf message
                 let mut message_buf = vec![0u8; length];
-                tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).map_err(|e| Box::new(e) as Box<dyn Error>).await.unwrap();
+                tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io)?;
 
                 // Decode the Protobuf message
                 return match T::decode(&message_buf[..]).map_err(|e| Box::new(e) as Box<dyn Error>) {
