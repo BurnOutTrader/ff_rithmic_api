@@ -8,7 +8,6 @@ This Api allows complete dynamic functionality for all plants and Response types
 I will hard code the responses and the template_id's into a unique `fn fwd_received_responses()` for each rithmic plant, so that they can just be copy pasted in the future.
 All possible proto responses are already compiled into rust code and so they should be visible in your IDE but starting to type Response.
 
-
 ## Not Done
 No rate limiting.
 No Auto reconnect.
@@ -99,7 +98,6 @@ async fn main() {
 }
 
 
-/// Due to the generic type T we cannot call this function directly on main.
 /// we use  RithmicApiClient.extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 pub async fn fwd_received_responses (
     client: &RithmicApiClient,
