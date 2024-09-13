@@ -24,7 +24,7 @@ pub struct RithmicApiClient {
     pub plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
     pub plant_reader: Arc<DashMap<SysInfraType, Arc<Mutex<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>>>>>,
     heart_beat_intervals: Arc<RwLock<AHashMap<SysInfraType, Duration>>>,
-    last_message_time: Arc<RwLock<AHashMap<SysInfraType, DateTime<Utc>>>>
+    last_message_time: Arc<DashMap<SysInfraType, DateTime<Utc>>>
 }
 
 impl RithmicApiClient {
@@ -73,7 +73,6 @@ impl RithmicApiClient {
         let length = buf.len() as u32;
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
-
         stream.send(Message::Binary(prefixed_msg)).await.map_err(|e| RithmicApiError::WebSocket(e))
     }
 
@@ -147,7 +146,7 @@ impl RithmicApiClient {
             }
         };
         //println!("{}", rithmic_server_name);
-        stream.close(None).await.map_err(|e| Box::new(e) as Box<dyn Error>).unwrap();
+        stream.close(None).await.map_err(RithmicApiError::WebSocket)?;
 
         let (mut stream, _) = match connect_async(self.credentials.base_url.clone()).await {
             Ok((stream, response)) => (stream, response),
@@ -174,8 +173,10 @@ impl RithmicApiClient {
         RithmicApiClient::send_single_protobuf_message(&mut stream, &login_request).await?;
 
         // Login Response 11 From Server
-        let _: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
-        //println!("{:?}", message);
+        let response: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
+        if let Some(heartbeat_interval) = response.heartbeat_interval {
+            self.heart_beat_intervals.write().await.insert( plant.clone(), Duration::from_secs(heartbeat_interval as u64));
+        }
 
         let (ws_writer, ws_reader) = stream.split();
         self.connected_plant.write().await.push(plant.clone());
@@ -206,6 +207,7 @@ impl RithmicApiClient {
             Some(writer) => writer
         };
 
+        self.last_message_time.insert(plant.clone(), Utc::now());
         let mut writer = writer.value().lock().await;
         match writer.send(Message::Binary(prefixed_msg)).await {
             Ok(_) => Ok(()),
@@ -237,7 +239,7 @@ impl RithmicApiClient {
 
         // Send a close frame using the writer
         let mut ws_writer= ws_writer.lock().await;
-        ws_writer.send(Message::Close(None)).await.unwrap();
+        ws_writer.send(Message::Close(None)).await.map_err(RithmicApiError::WebSocket)?;
 
         // Drain the reader to ensure the connection closes properly
         let mut ws_reader = ws_reader.lock().await;
