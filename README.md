@@ -76,9 +76,6 @@ async fn main() {
 }
 ```
 ## Parsing and Reading Messages
-We can use the receiver of the websocket connection to receive the `prost::Message`s from rithmic anywhere in our code base, Note that in the examples I am importing `use prost::{Message as ProstMessage};`.
-To send messages to rithmic we will only need a reference to the specific `RithmicApiClient` instance.
-We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
 You receive a `tokio_tungstenite::tungstenite::protocol::Message` which contains `prost::Message as ProstMessage`, if you use ProstMessage here you will get a trait related compile time error
 If you accidentally use the first message as a `ProstMessage`, you will receive this error at compile time:
 ```
@@ -93,7 +90,9 @@ help: add `dyn` keyword before this trait
 24 |                         ::Text(text) => {
 |                         ++++
 ```
-
+We can use the receiver of the websocket connection to receive the `prost::Message`s from rithmic anywhere in our code base, Note that in the examples I am importing `use prost::{Message as ProstMessage};`.
+To send messages to rithmic we will only need a reference to the specific `RithmicApiClient` instance.
+We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
 ```rust
 use prost::{Message as ProstMessage};
 use tokio_tungstenite::tungstenite::protocol::Message;
