@@ -56,22 +56,22 @@ async fn main() {
     
     //create api instance
     let rithmic_api = RithmicApiClient::new(credentials);
-    
-    // connect to plants and get the receiving half of the WebSocket for the specific plant returned
-    let mut ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
+
+    // Establish connections, sign in and receive back the websocket readers
+    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
 
-    let _history_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
+    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant).await?;
     assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
 
-    let _order_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
+    let _order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::OrderPlant).await?;
     assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
 
-    let _pnl_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
+    let _pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::PnlPlant).await?;
     assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
 
-    // The repo server is only for data agreements etc
-    let _repo_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
+    // Only for signing contracts etc
+    let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 }
 ```
