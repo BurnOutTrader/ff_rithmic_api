@@ -330,9 +330,19 @@ impl RithmicApiClient {
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
 
+        // send an initial heartbeat request to sync up
+        {
+            let mut sender = writer.lock().await;
+            match sender.send(Message::Binary(prefixed_msg.clone())).await {
+                Ok(_) => {},
+                Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
+            }
+            self.last_message_time.insert(plant.clone(), Instant::now());
+        }
         let last_message_time = self.last_message_time.clone();
         tokio::task::spawn(async move {
             loop {
+                sleep(heartbeat_interval - Duration::from_millis(500)).await;
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
                     if Instant::now() >= *last_msg_time.value() + heartbeat_interval {
@@ -345,7 +355,7 @@ impl RithmicApiClient {
                         last_message_time.insert(plant, Instant::now());
                     }
                 }
-                sleep(heartbeat_interval - Duration::from_millis(500)).await;
+
             }
         });
         Ok(())
