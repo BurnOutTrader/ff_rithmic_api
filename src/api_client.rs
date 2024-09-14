@@ -342,9 +342,9 @@ impl RithmicApiClient {
         let last_message_time = self.last_message_time.clone();
         tokio::task::spawn(async move {
             loop {
-                sleep(heartbeat_interval - Duration::from_millis(500)).await;
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
+                    sleep(heartbeat_interval - Duration::from_millis(500)).await;
                     if Instant::now() >= *last_msg_time.value() + heartbeat_interval {
                         let mut sender = writer.lock().await;
                         // Send heartbeat message
