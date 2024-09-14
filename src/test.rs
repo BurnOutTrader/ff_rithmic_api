@@ -348,7 +348,122 @@ pub async fn handle_responses_from_ticker_plant(
                                                 println!("Order Price Limits (Template ID: 163) from Server: {:?}", msg);
                                             }
                                         },
-                                        _ => println!("Failed to extract template_id")
+                                        _ => println!("No match for template_id: {}", template_id)
+                                    }
+                                }
+                            });
+                        }
+                        Message::Ping(ping) => {
+                            println!("{:?}", ping)
+                        }
+                        Message::Pong(pong) => {
+                            println!("{:?}", pong)
+                        }
+                        Message::Close(close) => {
+                            // receive this message when market is closed.
+                            // received: Ok(Close(Some(CloseFrame { code: Normal, reason: "normal closure" })))
+                            println!("{:?}", close)
+                        }
+                        Message::Frame(frame) => {
+                            //This message is sent on weekends, you can use this message to schedule a reconnection attempt for market open.
+                            /* Example of received market closed message
+                                Some(CloseFrame { code: Normal, reason: "normal closure" })
+                                Error: ServerErrorDebug("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant TickerPlant: Trying to work with closed connection")
+                            */
+                            println!("{}", frame)
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("failed to receive message: {}", e)
+                }
+            }
+        }
+    });
+    Ok(())
+}
+
+pub async fn handle_responses_from_order_plant(
+    client: Arc<RithmicApiClient>,
+    mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+) -> Result<(), RithmicApiError> {
+    tokio::task::spawn(async move {
+        const PLANT: SysInfraType = SysInfraType::OrderPlant;
+        while let Some(message) = reader.next().await {
+            println!("Message received: {:?}", message);
+            match message {
+                Ok(message) => {
+                    match message {
+                        Message::Text(text) => {
+                            println!("{}", text)
+                        }
+                        Message::Binary(bytes) => {
+                            // spawn a new task so that we can handle next message faster.
+                            let client = client.clone();
+                            tokio::task::spawn(async move {
+                                //messages will be forwarded here
+                                let mut cursor = Cursor::new(bytes);
+                                // Read the 4-byte length header
+                                let mut length_buf = [0u8; 4];
+                                let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
+                                let length = u32::from_be_bytes(length_buf) as usize;
+                                println!("Length: {}", length);
+
+                                // Read the Protobuf message
+                                let mut message_buf = vec![0u8; length];
+
+                                match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
+                                    Ok(_) => {}
+                                    Err(e) => eprintln!("Failed to read_extract message: {}", e)
+                                }
+                                if let Some(template_id) = client.extract_template_id(&message_buf) {
+                                    println!("Extracted template_id: {}", template_id);
+                                    // Now you can use the template_id to determine which type to decode into the concrete types
+                                    match template_id {
+                                        11 => {
+                                            if let Ok(msg) = ResponseLogin::decode(&message_buf[..]) {
+                                                // Login Response
+                                                // From Server
+                                                println!("Login Response (Template ID: 11) from Server: {:?}", msg);
+                                            }
+                                        },
+                                        13 => {
+                                            if let Ok(msg) = ResponseLogout::decode(&message_buf[..]) {
+                                                // Logout Response
+                                                // From Server
+                                                println!("Logout Response (Template ID: 13) from Server: {:?}", msg);
+                                            }
+                                        },
+                                        15 => {
+                                            if let Ok(msg) = ResponseReferenceData::decode(&message_buf[..]) {
+                                                // Reference Data Response
+                                                // From Server
+                                                println!("Reference Data Response (Template ID: 15) from Server: {:?}", msg);
+                                            }
+                                        },
+                                        17 => {
+                                            if let Ok(msg) = ResponseRithmicSystemInfo::decode(&message_buf[..]) {
+                                                // Rithmic System Info Response
+                                                // From Server
+                                                println!("Rithmic System Info Response (Template ID: 17) from Server: {:?}", msg);
+                                            }
+                                        },
+                                        19 => {
+                                            if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
+                                                // Response Heartbeat
+                                                // From Server
+                                                println!("Response Heartbeat (Template ID: 19) from Server: {:?}", msg);
+
+                                                // Example of sending a system gateway info request afterward
+                                                let request = RequestRithmicSystemGatewayInfo {
+                                                    template_id: 20,
+                                                    user_msg: vec![],
+                                                    system_name: Some(client.get_system_name(&PLANT).await.unwrap()),
+                                                };
+                                                client.send_message(&PLANT, &request).await.unwrap();
+                                            }
+                                        },
+                                        _ => println!("No match for template_id: {}", template_id)
                                     }
                                 }
                             });
