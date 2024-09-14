@@ -7,16 +7,10 @@ edition = "2021"
 serde = { version = "1.0.210", features = ["derive"] }
 toml = "*"
 dashmap ="*"
-ahash ="*"
 prost ="*"
 prost-build = "0.13.2"
 tokio-tungstenite = { version = "0.23.1", features = ["stream", "native-tls"] }
 futures-util = "0.3.30"
-url = "2.5.2"
 tokio =  { version = "*", features = ["full"] }
-chrono = "*"
 thiserror = "*"
 tungstenite = "0.23.0"
-mpsc ="*"
-regex = "1.10.6"
-walkdir = "2.5.0"

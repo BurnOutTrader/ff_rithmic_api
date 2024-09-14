@@ -6,7 +6,6 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc};
 use std::time::{Duration, Instant};
-use ahash::AHashMap;
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
@@ -28,7 +27,7 @@ pub struct RithmicApiClient {
     plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
 
     /// The heartbeat intervals before time out. this was specified on logging in
-    heart_beat_intervals: Arc<RwLock<AHashMap<SysInfraType, Duration>>>,
+    heart_beat_intervals: DashMap<SysInfraType, Duration>,
 
     /// The time the last message was sent, this is used to determine if we need to send a heartbeat.
     last_message_time: Arc<DashMap<SysInfraType, Instant>>,
@@ -44,17 +43,17 @@ impl RithmicApiClient {
         Self {
             credentials,
             connected_plant: Default::default(),
-            plant_writer: Arc::new(DashMap::new()),
-            heart_beat_intervals: Arc::new(Default::default()),
-            last_message_time: Arc::new(Default::default()),
-            system_name: Default::default(),
+            plant_writer: Arc::new(DashMap::with_capacity(5)),
+            heart_beat_intervals: DashMap::with_capacity(5),
+            last_message_time: Arc::new(DashMap::with_capacity(5)),
+            system_name: DashMap::with_capacity(5),
         }
     }
 
     pub async fn get_system_name(&self, plant: &SysInfraType) -> Option<String> {
         match self.system_name.get(plant) {
             None => None,
-            Some(name) => Some(name.value().clone())
+            Some(name) => Some(name.clone())
         }
     }
 
@@ -199,7 +198,7 @@ impl RithmicApiClient {
         // Login Response 11 From Server
         let response: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
         if let Some(heartbeat_interval) = response.heartbeat_interval {
-            self.heart_beat_intervals.write().await.insert( plant.clone(), Duration::from_secs(heartbeat_interval as u64));
+            self.heart_beat_intervals.insert( plant.clone(), Duration::from_secs(heartbeat_interval as u64));
         }
 
         let (ws_writer, ws_reader) = stream.split();
@@ -301,7 +300,7 @@ impl RithmicApiClient {
         plant: SysInfraType,
     ) -> Result<(), RithmicApiError> {
         // Interval for heartbeat checks
-        let heartbeat_interval = match self.heart_beat_intervals.read().await.get(&plant) {
+        let heartbeat_interval = match self.heart_beat_intervals.get(&plant) {
             None => return Err(RithmicApiError::ClientErrorDebug("No heartbeat interval recorded at log in, please logout and login again".to_string())),
             Some(hb) => hb
         }.clone();
