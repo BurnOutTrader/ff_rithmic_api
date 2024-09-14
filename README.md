@@ -72,6 +72,7 @@ async fn main() {
     let _pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
 
+    // The repo server is only for data agreements etc
     let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
 }
