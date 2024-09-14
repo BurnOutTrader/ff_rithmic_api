@@ -4,7 +4,7 @@ use futures_util::StreamExt;
 use crate::api_client::RithmicApiClient;
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
-use crate::rithmic_proto_objects::rti::{RequestHeartbeat, ResponseHeartbeat};
+use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestRithmicSystemGatewayInfo, ResponseHeartbeat, ResponseRithmicSystemInfo};
 use crate::errors::RithmicApiError;
 use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
@@ -72,7 +72,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 pub async fn handle_received_responses(
     client: &RithmicApiClient,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    _plant: SysInfraType,
+    plant: SysInfraType,
 ) -> Result<(), RithmicApiError> {
     //tokio::task::spawn(async move {
         while let Some(message) = reader.next().await {
@@ -108,10 +108,22 @@ pub async fn handle_received_responses(
                                         if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
                                             println!("Decoded as: {:?}", msg);
 
+                                            // now send a gateway info request to test that we can actually parse multiple types
+                                            let request = RequestRithmicSystemGatewayInfo {
+                                                template_id: 20,
+                                                user_msg: vec![],
+                                                system_name: None,
+                                            };
+                                            client.send_message(&plant, &request).await?
+                                        }
+                                    },
+                                    21 => {
+                                        if let Ok(msg) = ResponseRithmicSystemInfo::decode(&message_buf[..]) {
+                                            println!("Decoded as: {:?}", msg);
                                             //for the sake of the example I am breaking the loop early
                                             break;
                                         }
-                                    },
+                                    }
                                     // Add cases for other template_ids and corresponding message types
                                     _ => println!("Unknown template_id: {}", template_id),
                                 }

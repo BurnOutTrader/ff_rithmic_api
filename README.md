@@ -176,10 +176,22 @@ pub async fn handle_received_responses(
                                     if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
                                         println!("Decoded as: {:?}", msg);
 
+                                        // now send a gateway info request to test that we can actually parse multiple types
+                                        let request = RequestRithmicSystemGatewayInfo {
+                                            template_id: 20,
+                                            user_msg: vec![],
+                                            system_name: None,
+                                        };
+                                        client.send_message(&plant, &request).await?
+                                    }
+                                },
+                                21 => {
+                                    if let Ok(msg) = ResponseRithmicSystemInfo::decode(&message_buf[..]) {
+                                        println!("Decoded as: {:?}", msg);
                                         //for the sake of the example I am breaking the loop early
                                         break;
                                     }
-                                },
+                                }
                                 // Add cases for other template_ids and corresponding message types
                                 _ => println!("Unknown template_id: {}", template_id),
                             }
