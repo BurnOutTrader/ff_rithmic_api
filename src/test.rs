@@ -85,6 +85,8 @@ pub async fn handle_received_responses(
         SysInfraType::RepositoryPlant => panic!("Not yet implemented"),
     }
 }
+
+#[allow(dead_code)]
 /// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 pub async fn handle_responses_from_ticker_plant(
     client: Arc<RithmicApiClient>,
@@ -382,7 +384,7 @@ pub async fn handle_responses_from_ticker_plant(
     });
     Ok(())
 }
-
+#[allow(dead_code)]
 pub async fn handle_responses_from_order_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
@@ -742,6 +744,7 @@ pub async fn handle_responses_from_order_plant(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn handle_responses_from_history_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
