@@ -80,7 +80,7 @@ pub async fn handle_received_responses(
     match plant {
         SysInfraType::TickerPlant => handle_responses_from_ticker_plant(client, reader).await,
         SysInfraType::OrderPlant => handle_responses_from_order_plant(client, reader).await,
-        SysInfraType::HistoryPlant => panic!("Not yet implemented"),
+        SysInfraType::HistoryPlant => handle_responses_from_history_plant(client, reader).await,
         SysInfraType::PnlPlant => panic!("Not yet implemented"),
         SysInfraType::RepositoryPlant => panic!("Not yet implemented"),
     }
