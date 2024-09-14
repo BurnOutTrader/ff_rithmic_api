@@ -89,6 +89,7 @@ help: add `dyn` keyword before this trait
 24 |                         ::Text(text) => {
 |                         ++++
 ```
+This is how it should be
 ```rust
 use tokio_tungstenite::tungstenite::protocol::Message;
 use prost::{Message as ProstMessage};
@@ -104,6 +105,12 @@ while let Some(message) = reader.next().await {
                     // The bytes are a prost::Message as ProstMessage
                     println!("{}", bytes)
                 }
+                // NOT THIS!
+               /* ProstMessage::Binary(vector_bytes) => {
+
+                    // The bytes are a prost::Message as ProstMessage
+                    println!("{}", bytes)
+                }*/
             }
         }
     }
