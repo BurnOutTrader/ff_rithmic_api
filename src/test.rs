@@ -214,11 +214,6 @@ pub async fn handle_responses_from_ticker_plant(
                                                 println!("Market Data Update by Underlying Response (Template ID: 106) from Server: {:?}", msg);
                                             }
                                         },
-                                        107 => {
-                                            if let Ok(msg) = ResponseGiveTickSizeTypeTable::decode(&message_buf[..]) {
-                                                println!("Give Tick Size Type Table Response (Template ID: 106) from Server: {:?}", msg);
-                                            }
-                                        }
                                         108 => {
                                             if let Ok(msg) = ResponseGiveTickSizeTypeTable::decode(&message_buf[..]) {
                                                 // Give Tick Size Type Table Response
