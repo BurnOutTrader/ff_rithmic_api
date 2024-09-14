@@ -33,6 +33,7 @@ pub struct RithmicApiClient {
     /// The time the last message was sent, this is used to determine if we need to send a heartbeat.
     last_message_time: Arc<DashMap<SysInfraType, Instant>>,
 
+    /// The system name for the associated plant
     system_name: DashMap<SysInfraType, String>
 }
 
