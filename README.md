@@ -77,35 +77,73 @@ We can use the receiver of the websocket connection to receive the `prost::Messa
 To send messages to rithmic we will only need a reference to the specific `RithmicApiClient` instance.
 We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
 ```rust
-#[tokio::main]
-async fn main() {
-    // Send a message to rithmic
+
+#[tokio::test]
+async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
+    // Define the file path for credentials
+    let file_path = String::from("rithmic_credentials.toml".to_string());
+
+    // Define credentials
+    let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
+    let app_name = credentials.app_name.clone();
+    // Save credentials to file
+    //credentials.save_credentials_to_file(&file_path)?;
+
+    // Create a new RithmicApiClient instance
+    let rithmic_api = RithmicApiClient::new(credentials);
+
+    // Test connections
+    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
+
+    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
+
+    let _order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::OrderPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
+
+    let _pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::PnlPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
+
+    let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant, 100).await?;
+    assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
+
+
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
-    let heart_beat_request = RequestHeartbeat {
+    let heart_beat = RequestHeartbeat {
         template_id: 18,
         user_msg: vec![format!("{} Testing heartbeat", app_name)],
         ssboe: None,
         usecs: None,
     };
+
     // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
-    let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
-    
+    match rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await {
+        Ok(_) => println!("Heart beat sent"),
+        Err(e) => eprintln!("Heartbeat send failed: {}", e)
+    }
+
     handle_received_responses(&rithmic_api, ticker_receiver, SysInfraType::TickerPlant).await?;
-    
-    // Shutdown all connections
+    let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
+
+    // Logout and Shutdown all connections
     rithmic_api.shutdown_all().await?;
-    
+
+    // or Logout and Shutdown a single connection
+    //RithmicApiClient::shutdown_split_websocket(&rithmic_api, SysInfraType::TickerPlant).await?;
+
     Ok(())
 }
 
-
-/// we use  RithmicApiClient.extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
-pub async fn fwd_received_responses (
+/// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
+pub async fn handle_received_responses(
     client: &RithmicApiClient,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    plant: SysInfraType,
+    _plant: SysInfraType,
 ) -> Result<(), RithmicApiError> {
+    //tokio::task::spawn(async move {
     while let Some(message) = reader.next().await {
+        println!("Message received: {:?}", message);
         match message {
             Ok(message) => {
                 match message {
@@ -133,9 +171,8 @@ pub async fn fwd_received_responses (
                             println!("Extracted template_id: {}", template_id);
                             // Now you can use the template_id to determine which type to decode into
                             match template_id {
-                                // Assuming each message type has a unique template_id
                                 19 => {
-                                    if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {   
+                                    if let Ok(msg) = ResponseHeartbeat::decode(&message_buf[..]) {
                                         println!("Decoded as: {:?}", msg);
 
                                         //for the sake of the example I am breaking the loop early
@@ -168,8 +205,10 @@ pub async fn fwd_received_responses (
             }
         }
     }
+    //});
     Ok(())
 }
+
 
 ```
 
