@@ -5,12 +5,11 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc};
-use std::time::{Duration};
+use std::time::{Duration, Instant};
 use ahash::AHashMap;
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
-use tokio::time::{sleep, Instant};
 use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
@@ -341,8 +340,9 @@ impl RithmicApiClient {
         }
         let last_message_time = self.last_message_time.clone();
         tokio::task::spawn(async move {
+            let mut interval = tokio::time::interval(heartbeat_interval);
             loop {
-                sleep(heartbeat_interval - Duration::from_millis(500)).await;
+                interval.tick().await;
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
                     if Instant::now() >= *last_msg_time.value() + heartbeat_interval {
