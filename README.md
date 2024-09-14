@@ -76,8 +76,7 @@ async fn main() {
 }
 ```
 ## Parsing and Reading Messages
-You receive a `tokio_tungstenite::tungstenite::protocol::Message` which contains `prost::Message as ProstMessage`, if you use ProstMessage here you will get a trait related compile time error
-If you accidentally use the first message as a `ProstMessage`, you will receive this error at compile time:
+You receive a tokio_tungstenite::tungstenite::protocol::Message containing a prost::Message, referred to as ProstMessage. If you attempt to treat the original message directly as a ProstMessage, you will encounter the following compile-time error:
 ```
 error[E0782]: trait objects must include the dyn keyword
 –> rithmic_api/handle_tick_plant.rs:xx:xx
