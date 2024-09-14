@@ -180,7 +180,7 @@ pub async fn handle_received_responses(
                                         let request = RequestRithmicSystemGatewayInfo {
                                             template_id: 20,
                                             user_msg: vec![],
-                                            system_name: None,
+                                            system_name: Some(client.get_system_name(&plant).await.unwrap()),
                                         };
                                         client.send_message(&plant, &request).await?
                                     }

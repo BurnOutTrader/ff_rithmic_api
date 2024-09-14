@@ -33,6 +33,8 @@ pub struct RithmicApiClient {
 
     /// The time the last message was sent, this is used to determine if we need to send a heartbeat.
     last_message_time: Arc<DashMap<SysInfraType, Instant>>,
+
+    system_name: DashMap<SysInfraType, String>
 }
 
 impl RithmicApiClient {
@@ -45,6 +47,14 @@ impl RithmicApiClient {
             plant_writer: Arc::new(DashMap::new()),
             heart_beat_intervals: Arc::new(Default::default()),
             last_message_time: Arc::new(Default::default()),
+            system_name: Default::default(),
+        }
+    }
+
+    pub async fn get_system_name(&self, plant: &SysInfraType) -> Option<String> {
+        match self.system_name.get(plant) {
+            None => None,
+            Some(name) => Some(name.value().clone())
         }
     }
 
@@ -177,7 +187,7 @@ impl RithmicApiClient {
             password: Some(self.credentials.password.clone()),
             app_name: Some(self.credentials.app_name.clone()),
             app_version: Some(self.credentials.app_version.clone()),
-            system_name: Some(rithmic_server_name),
+            system_name: Some(rithmic_server_name.clone()),
             infra_type: Some(plant as i32),
             mac_addr: vec![],
             os_version: None,
@@ -195,6 +205,7 @@ impl RithmicApiClient {
         let (ws_writer, ws_reader) = stream.split();
         self.connected_plant.write().await.push(plant.clone());
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
+        self.system_name.insert(plant.clone(), rithmic_server_name.clone());
         match self.start_heartbeat(plant).await {
             Ok(_) => Ok(ws_reader),
             Err(e) => {
@@ -261,7 +272,7 @@ impl RithmicApiClient {
         ws_writer.send(Message::Close(None)).await.map_err(RithmicApiError::WebSocket)?;
 
         self.connected_plant.write().await.retain(|x| *x != plant);
-
+        self.system_name.remove(&plant);
         println!("Safely shutdown rithmic split stream");
         Ok(())
     }
