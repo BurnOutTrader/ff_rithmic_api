@@ -37,6 +37,7 @@ pub struct RithmicApiClient {
     /// The system name for the associated plant
     system_name: DashMap<SysInfraType, String>,
 
+    /// Keep a map of heartbeat tasks so that we can cut the loop when we shut down a plant conenction
     heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
 }
 
