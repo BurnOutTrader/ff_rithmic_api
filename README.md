@@ -3,6 +3,8 @@ This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/f
 
 The api is currently contains the full functionality for rithmic RProtocol api. 
 
+Be aware! Tests will fail when the market is closed.
+
 ## Complete
 This Api allows complete dynamic functionality for all Infrastructure Plants, Requests and Response types.
 I will hard code the responses and the template_id's into a unique `fn handle_received_responses()` for each rithmic plant, so that they can just be copy pasted in the future.
