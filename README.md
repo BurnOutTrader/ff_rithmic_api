@@ -7,9 +7,9 @@ Be aware! Tests will fail when the market is closed.
 
 ## Complete
 This Api allows complete dynamic functionality for all Infrastructure Plants, Requests and Response types.
-All possible proto responses and request are already compiled into rust code and they should be visible in your IDE by starting to type Response or Request.
-See [tests.rs](https://github.com/BurnOutTrader/ff_rithmic_api/blob/master/src/test.rs) for copy-paste function templates of all response message types for each rithmic plant connection variable.
-
+All possible proto responses and request are already compiled into rust code and they should be visible in your IDE by starting to type Response or Request. \
+See [tests.rs](https://github.com/BurnOutTrader/ff_rithmic_api/blob/master/src/test.rs) for copy-paste function templates of all response message types for each rithmic plant connection variable. \
+Hint: some Response types don't start with the word Response as shown in the Rithmic Docs, try typing the actual name of the response object or task eg: instead of "ReponseOrderBook" try typing "OrderBook".
 ## Not Included
 No rate limiting. \
 No Auto reconnect. \
