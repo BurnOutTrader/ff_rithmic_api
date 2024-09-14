@@ -92,7 +92,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     // Create a new RithmicApiClient instance
     let rithmic_api = RithmicApiClient::new(credentials);
 
-    // Test connections
+    // Test connections and receive back the websocket readers
     let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
 
