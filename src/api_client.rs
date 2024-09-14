@@ -14,6 +14,7 @@ use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
 use crate::errors::RithmicApiError;
 use prost::encoding::{decode_key, decode_varint, WireType};
+use tokio::time::sleep;
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
@@ -340,12 +341,11 @@ impl RithmicApiClient {
             last_message_time.insert(plant.clone(), Instant::now());
         }
         tokio::task::spawn(async move {
-            let mut interval = tokio::time::interval(heartbeat_interval);
             loop {
-                interval.tick().await;
+                sleep(heartbeat_interval - Duration::from_millis(500)).await;
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
-                    if Instant::now() >= *last_msg_time.value() + heartbeat_interval {
+                    if Instant::now() >= *last_msg_time.value() + heartbeat_interval - Duration::from_millis(500) {
                         let mut sender = writer.lock().await;
                         // Send heartbeat message
                         match sender.send(Message::Binary(prefixed_msg.clone())).await {
