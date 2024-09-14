@@ -10,7 +10,7 @@ This Api allows complete dynamic functionality for all Infrastructure Plants, Re
 I will hard code the responses and the template_id's into a unique `fn handle_received_responses()` for each rithmic plant, so that they can be copy-pasted in the future.
 All possible proto responses and request are already compiled into rust code and they should be visible in your IDE by starting to type Response or Request.
 
-See test.rs for copy-paste templates of all message types for each rithmic plant connection variable.
+See [tests.rs](https://github.com/BurnOutTrader/ff_rithmic_api/blob/master/src/test.rs) for copy-paste templates of all message types for each rithmic plant connection variable.
 
 ## Not Included
 No rate limiting. \
