@@ -101,29 +101,27 @@ pub async fn handle_responses_from_ticker_plant(
                             println!("{}", text)
                         }
                         Message::Binary(bytes) => {
-                            //messages will be forwarded here
-                            let mut cursor = Cursor::new(bytes);
-                            // Read the 4-byte length header
-                            let mut length_buf = [0u8; 4];
-                            let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
-                            let length = u32::from_be_bytes(length_buf) as usize;
-                            println!("Length: {}", length);
+                            // spawn a new task so that we can handle next message faster.
+                            let client = client.clone();
+                            tokio::task::spawn(async move {
+                                //messages will be forwarded here
+                                let mut cursor = Cursor::new(bytes);
+                                // Read the 4-byte length header
+                                let mut length_buf = [0u8; 4];
+                                let _ = tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io);
+                                let length = u32::from_be_bytes(length_buf) as usize;
+                                println!("Length: {}", length);
 
-                            // Read the Protobuf message
-                            let mut message_buf = vec![0u8; length];
+                                // Read the Protobuf message
+                                let mut message_buf = vec![0u8; length];
 
-                            match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
-                                Ok(_) => {}
-                                Err(e) => eprintln!("Failed to read_extract message: {}", e)
-                            }
-
-                            if let Some(template_id) = client.extract_template_id(&message_buf) {
-                                println!("Extracted template_id: {}", template_id);
-                                // Now you can use the template_id to determine which type to decode into
-
-                                // spawn a new task so that we can handle next message faster.
-                                let client = client.clone();
-                                tokio::task::spawn(async move {
+                                match tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io) {
+                                    Ok(_) => {}
+                                    Err(e) => eprintln!("Failed to read_extract message: {}", e)
+                                }
+                                if let Some(template_id) = client.extract_template_id(&message_buf) {
+                                    println!("Extracted template_id: {}", template_id);
+                                    // Now you can use the template_id to determine which type to decode into the concrete types
                                     match template_id {
                                         11 => {
                                             if let Ok(msg) = ResponseLogin::decode(&message_buf[..]) {
@@ -352,8 +350,8 @@ pub async fn handle_responses_from_ticker_plant(
                                         },
                                         _ => println!("Failed to extract template_id")
                                     }
-                                });
-                            }
+                                }
+                            });
                         }
                         Message::Ping(ping) => {
                             println!("{:?}", ping)
