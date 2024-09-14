@@ -6,7 +6,7 @@ The api is currently contains the full functionality for rithmic RProtocol api.
 ## Complete
 This Api allows complete dynamic functionality for all Infrastructure Plants, Requests and Response types.
 I will hard code the responses and the template_id's into a unique `fn handle_received_responses()` for each rithmic plant, so that they can just be copy pasted in the future.
-All possible proto responses are already compiled into rust code and so they should be visible in your IDE by starting to type Response.
+All possible proto responses and request are already compiled into rust code and so they should be visible in your IDE by starting to type Response or Request.
 
 ## Not Done
 No rate limiting. \
