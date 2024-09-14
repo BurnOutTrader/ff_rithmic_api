@@ -329,6 +329,7 @@ impl RithmicApiClient {
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
 
+        let last_message_time = self.last_message_time.clone();
         // send an initial heartbeat request to sync up
         {
             let mut sender = writer.lock().await;
@@ -336,9 +337,8 @@ impl RithmicApiClient {
                 Ok(_) => {},
                 Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
             }
-            self.last_message_time.insert(plant.clone(), Instant::now());
+            last_message_time.insert(plant.clone(), Instant::now());
         }
-        let last_message_time = self.last_message_time.clone();
         tokio::task::spawn(async move {
             let mut interval = tokio::time::interval(heartbeat_interval);
             loop {
@@ -358,30 +358,6 @@ impl RithmicApiClient {
             }
         });
         Ok(())
-    }
-
-    pub async fn deserialize_message<T: ProstMessage + Default>(
-        &self,
-        message: Message
-    ) -> Result<T, RithmicApiError> {
-        if let tungstenite::Message::Binary(data) = message {
-            // Create a cursor for reading the data
-            let mut cursor = Cursor::new(data);
-
-            // Read the 4-byte length header
-            let mut length_buf = [0u8; 4];
-            tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut length_buf).await.map_err(RithmicApiError::Io)?;
-            let length = u32::from_be_bytes(length_buf) as usize;
-
-            // Read the Protobuf message
-            let mut message_buf = vec![0u8; length];
-            tokio::io::AsyncReadExt::read_exact(&mut cursor, &mut message_buf).await.map_err(RithmicApiError::Io)?;
-
-            // Decode the Protobuf message
-            T::decode(&message_buf[..]).map_err(RithmicApiError::ProtobufDecode)
-        } else {
-            Err(RithmicApiError::ServerErrorDebug("Received non-binary message".to_string()))
-        }
     }
 
     /// Dynamically get the template_id field form a generic type T.
