@@ -14,6 +14,7 @@ use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
 use crate::errors::RithmicApiError;
 use prost::encoding::{decode_key, decode_varint, WireType};
+use tokio::task::JoinHandle;
 use tokio::time::sleep;
 
 ///Server uses Big Endian format for binary data
@@ -25,7 +26,7 @@ pub struct RithmicApiClient {
     connected_plant: Arc<RwLock<Vec<SysInfraType>>>,
 
     /// The writer half of the websocket for the SysInfraType
-    plant_writer:Arc<DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>>,
+    plant_writer: DashMap<SysInfraType, Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>,
 
     /// The heartbeat intervals before time out. this was specified on logging in
     heart_beat_intervals: DashMap<SysInfraType, Duration>,
@@ -34,7 +35,9 @@ pub struct RithmicApiClient {
     last_message_time: Arc<DashMap<SysInfraType, Instant>>,
 
     /// The system name for the associated plant
-    system_name: DashMap<SysInfraType, String>
+    system_name: DashMap<SysInfraType, String>,
+
+    heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
 }
 
 impl RithmicApiClient {
@@ -44,10 +47,11 @@ impl RithmicApiClient {
         Self {
             credentials,
             connected_plant: Default::default(),
-            plant_writer: Arc::new(DashMap::with_capacity(5)),
+            plant_writer: DashMap::with_capacity(5),
             heart_beat_intervals: DashMap::with_capacity(5),
             last_message_time: Arc::new(DashMap::with_capacity(5)),
             system_name: DashMap::with_capacity(5),
+            heartbeats: DashMap::with_capacity(5),
         }
     }
 
@@ -273,6 +277,9 @@ impl RithmicApiClient {
 
         self.connected_plant.write().await.retain(|x| *x != plant);
         self.system_name.remove(&plant);
+        if let Some(heartbeat_task) = self.heartbeats.get(&plant) {
+            heartbeat_task.value().abort();
+        }
         println!("Safely shutdown rithmic split stream");
         Ok(())
     }
@@ -307,7 +314,7 @@ impl RithmicApiClient {
         }.clone();
 
         let last_message = self.last_message_time.clone();
-        let writer = match self.plant_writer.get(&plant){
+        let writer = match self.plant_writer.get(&plant) {
             None => return Err(RithmicApiError::ClientErrorDebug("No writer stored at log in, please logout and login again".to_string())),
             Some(writer) => writer
         }.value().clone();
@@ -325,13 +332,13 @@ impl RithmicApiClient {
             Err(e) => return Err(RithmicApiError::ClientErrorDebug(format!("Failed to encode RithmicMessage: {}", e)))
         }
 
-        // we can create a reusable buffer of the heartbeat message, so we don't need to recreate it each time.
         let length = buf.len() as u32;
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
 
         let last_message_time = self.last_message_time.clone();
-        // send an initial heartbeat request to sync up
+
+        // Send an initial heartbeat request
         {
             let mut sender = writer.lock().await;
             match sender.send(Message::Binary(prefixed_msg.clone())).await {
@@ -340,23 +347,35 @@ impl RithmicApiClient {
             }
             last_message_time.insert(plant.clone(), Instant::now());
         }
-        tokio::task::spawn(async move {
-            loop {
-                sleep(heartbeat_interval - Duration::from_millis(500)).await;
-                // Check if the last message timestamp for the plant is older than the interval duration
-                if let Some(last_msg_time) = last_message.get(&plant) {
-                    if Instant::now() >= *last_msg_time.value() + heartbeat_interval - Duration::from_millis(500) {
-                        let mut sender = writer.lock().await;
-                        // Send heartbeat message
-                        match sender.send(Message::Binary(prefixed_msg.clone())).await {
-                            Ok(_) => {},
-                            Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
+
+        // Spawn the heartbeat task and store the handle
+        let task_handle = tokio::task::spawn({
+            let plant = plant.clone();
+            let last_message = last_message.clone();
+            let writer = writer.clone();
+            async move {
+                loop {
+                    sleep(heartbeat_interval - Duration::from_millis(500)).await;
+                    if let Some(last_msg_time) = last_message.get(&plant) {
+                        if Instant::now() >= *last_msg_time.value() + heartbeat_interval - Duration::from_millis(500) {
+                            let mut sender = writer.lock().await;
+                            match sender.send(Message::Binary(prefixed_msg.clone())).await {
+                                Ok(_) => {},
+                                Err(e) => {
+                                    eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e);
+                                    break;
+                                }
+                            }
+                            last_message_time.insert(plant.clone(), Instant::now());
                         }
-                        last_message_time.insert(plant, Instant::now());
                     }
                 }
             }
         });
+
+        // Store the task handle in the DashMap
+        self.heartbeats.insert(plant, task_handle);
+
         Ok(())
     }
 
