@@ -43,8 +43,8 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     assert!(rithmic_api_arc.is_connected(SysInfraType::PnlPlant).await);
 
     // The repo server is only used for data agreements
-    //let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
-    //assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
+    let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
 
 
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
@@ -67,9 +67,6 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     // Logout and Shutdown all connections
     rithmic_api_arc.shutdown_all().await?;
 
-    // or Logout and Shutdown a single connection
-    //RithmicApiClient::shutdown_split_websocket(&rithmic_api, SysInfraType::TickerPlant).await?;
-
     Ok(())
 }
 
@@ -83,7 +80,7 @@ pub async fn handle_received_responses(
         SysInfraType::OrderPlant => handle_responses_from_order_plant(client, reader).await,
         SysInfraType::HistoryPlant => handle_responses_from_history_plant(client, reader).await,
         SysInfraType::PnlPlant => handle_responses_from_pnl_plant(client, reader).await,
-        SysInfraType::RepositoryPlant => panic!("Not yet implemented"),
+        SysInfraType::RepositoryPlant => handle_responses_from_repo_plant(client, reader).await,
     }
 }
 
