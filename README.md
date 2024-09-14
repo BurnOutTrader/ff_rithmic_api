@@ -93,8 +93,8 @@ We can use the receiver of the websocket connection to receive the `prost::Messa
 To send messages to rithmic we will only need a reference to the specific `RithmicApiClient` instance.
 We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
 ```rust
-use prost::{Message as ProstMessage};
 use tokio_tungstenite::tungstenite::protocol::Message;
+use prost::{Message as ProstMessage};
 fn example() {
 while let Some(message) = reader.next().await {
     println!("Message received: {:?}", message);
