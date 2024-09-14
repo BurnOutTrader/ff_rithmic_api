@@ -206,6 +206,12 @@ pub async fn handle_received_responses(
                         println!("{:?}", pong)
                     }
                     Message::Close(close) => {
+                        //This message is sent on weekends, you can use this message to schedule a reconnection attempt for market open.
+                        /* Example of received market closed message                             
+                            received: Ok(Close(Some(CloseFrame { code: Normal, reason: "normal closure" })))
+                            Some(CloseFrame { code: Normal, reason: "normal closure" })
+                            Error: ServerErrorDebug("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant TickerPlant: Trying to work with closed connection")
+                        */
                         println!("{:?}", close)
                     }
                     Message::Frame(frame) => {
