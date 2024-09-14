@@ -345,13 +345,15 @@ impl RithmicApiClient {
                 sleep(heartbeat_interval - Duration::from_millis(500)).await;
                 // Check if the last message timestamp for the plant is older than the interval duration
                 if let Some(last_msg_time) = last_message.get(&plant) {
-                    let mut sender = writer.lock().await;
-                    // Send heartbeat message
-                    match sender.send(Message::Binary(prefixed_msg.clone())).await {
-                        Ok(_) => {},
-                        Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
+                    if Instant::now() >= *last_msg_time.value() + heartbeat_interval {
+                        let mut sender = writer.lock().await;
+                        // Send heartbeat message
+                        match sender.send(Message::Binary(prefixed_msg.clone())).await {
+                            Ok(_) => {},
+                            Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
+                        }
+                        last_message_time.insert(plant, Instant::now());
                     }
-                    last_message_time.insert(plant, Instant::now());
                 }
             }
         });
