@@ -12,7 +12,7 @@ All possible proto responses and request are already compiled into rust code and
 
 See test.rs for copy-paste templates of all message types for each rithmic plant connection variable.
 
-## Not Done
+## Not Included
 No rate limiting. \
 No Auto reconnect. \
 Not ensuring SSL, we are using a  MaybeTlsStream, since the domain name is "wss://" I assume this is properly completing the handshake.
