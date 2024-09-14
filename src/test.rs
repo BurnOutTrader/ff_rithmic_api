@@ -116,6 +116,7 @@ pub async fn handle_responses_from_ticker_plant(
             match message {
                 Ok(message) => {
                     match message {
+                        // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
                         Message::Text(text) => {
                             println!("{}", text)
                         }
@@ -413,6 +414,7 @@ pub async fn handle_responses_from_order_plant(
             match message {
                 Ok(message) => {
                     match message {
+                        // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
                         Message::Text(text) => {
                             println!("{}", text)
                         }
@@ -772,6 +774,7 @@ pub async fn handle_responses_from_history_plant(
             println!("Message received: {:?}", message);
             match message {
                 Ok(message) => {
+                    // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
                     match message {
                         Message::Text(text) => {
                             println!("{}", text)
@@ -945,6 +948,7 @@ pub async fn handle_responses_from_pnl_plant(
             println!("Message received: {:?}", message);
             match message {
                 Ok(message) => {
+                    // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
                     match message {
                         Message::Text(text) => {
                             println!("{}", text)
@@ -1082,6 +1086,7 @@ pub async fn handle_responses_from_repo_plant(
             println!("Message received: {:?}", message);
             match message {
                 Ok(message) => {
+                    // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
                     match message {
                         Message::Text(text) => {
                             println!("{}", text)

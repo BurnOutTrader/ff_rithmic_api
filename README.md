@@ -79,6 +79,40 @@ async fn main() {
 We can use the receiver of the websocket connection to receive the `prost::Message`s from rithmic anywhere in our code base, Note that in the examples I am importing `use prost::{Message as ProstMessage};`.
 To send messages to rithmic we will only need a reference to the specific `RithmicApiClient` instance.
 We do not need a mutable client to send messages to rithmic as the writer half of the stream is stored in a DashMap.
+You receive a `tokio_tungstenite::tungstenite::protocol::Message` which contains `prost::Message as ProstMessage`, if you use ProstMessage here you will get a trait related compile time error
+If you accidentally use the first message as a `ProstMessage`, you will receive this error at compile time: 
+`error[E0782]: trait objects must include the `dyn` keyword
+--> rithmic_api/handle_tick_plant.rs:xx:xx
+|
+24 |                         ProstMessage::Text(text) => {
+|                         ^^^^^^^^^^^^
+|
+help: add `dyn` keyword before this trait
+|
+24 |                         <dyn ProstMessage>::Text(text) => {
+|                         ++++    `
+
+```rust
+use prost::{Message as ProstMessage};
+use tokio_tungstenite::tungstenite::protocol::Message;
+fn example() {
+while let Some(message) = reader.next().await {
+    println!("Message received: {:?}", message);
+    match message {
+        Ok(message) => {
+            match message {
+                // This is a tungstenite::protocol::Message
+                Message::Binary(vector_bytes) => {
+                    
+                    // The bytes are a prost::Message as ProstMessage
+                    println!("{}", bytes)
+                }
+            }
+        }
+    }
+}
+
+```
 ```rust
 
 #[tokio::test]
@@ -151,10 +185,10 @@ pub async fn handle_received_responses(
         match message {
             Ok(message) => {
                 match message {
-                    Message::Text(text) => {
+                    tokio_tungstenite::tungstenite::protocol::Message::Text(text) => {
                         println!("{}", text)
                     }
-                    Message::Binary(bytes) => {
+                    tokio_tungstenite::tungstenite::protocol::Message::Binary(bytes) => {
                         //messages will be forwarded here
                         let mut cursor = Cursor::new(bytes);
                         // Read the 4-byte length header
@@ -202,18 +236,18 @@ pub async fn handle_received_responses(
                             println!("Failed to extract template_id");
                         }
                     }
-                    Message::Ping(ping) => {
+                    tokio_tungstenite::tungstenite::protocol::Message::Ping(ping) => {
                         println!("{:?}", ping)
                     }
-                    Message::Pong(pong) => {
+                    tokio_tungstenite::tungstenite::protocol::Message::Pong(pong) => {
                         println!("{:?}", pong)
                     }
-                    Message::Close(close) => {
+                    tokio_tungstenite::tungstenite::protocol::Message::Close(close) => {
                         // receive this message when market is closed.
                         // received: Ok(Close(Some(CloseFrame { code: Normal, reason: "normal closure" })))
                         println!("{:?}", close)
                     }
-                    Message::Frame(frame) => {
+                    tokio_tungstenite::tungstenite::protocol::Message::Frame(frame) => {
                         //This message is sent on weekends, you can use this message to schedule a reconnection attempt for market open.
                         /* Example of received market closed message
                             Some(CloseFrame { code: Normal, reason: "normal closure" })

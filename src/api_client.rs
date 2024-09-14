@@ -380,7 +380,7 @@ impl RithmicApiClient {
         Ok(())
     }
 
-    /// Dynamically get the template_id field form a generic type T.
+    /// Dynamically get the template_id field from a generic type T.
     pub fn extract_template_id(&self, bytes: &[u8]) -> Option<i32> {
         let mut cursor = Cursor::new(bytes);
         while let Ok((field_number, wire_type)) = decode_key(&mut cursor) {
