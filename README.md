@@ -14,7 +14,7 @@ Hint: some Response types don't start with the word Response as shown in the Rit
 No rate limiting. \
 No Auto reconnect. \
 Not ensuring SSL, we are using a  MaybeTlsStream, since the domain name is "wss://" I assume this is properly completing the handshake. \
-Not thoroughly tested, if you experience a locking behaviour, try applying a lock to the fn `api_client.update_heartbeat();` I am not sure how this fn will keep up in async contexts if misused.
+Not thoroughly tested, if you experience a locking behaviour, try applying a lock to the fn `api_client.update_heartbeat():' or simply don't use it, I am not sure how this fn will keep up in async contexts if misused.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
 ## Login and connect
@@ -174,8 +174,13 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     handle_received_responses(&rithmic_api, ticker_receiver, SysInfraType::TickerPlant).await?;
     
-    // on receiving messages we can manually reset the heartbeat timer
+    // on receiving messages we can manually reset the heartbeat timer. this is used when not streaming data, it will automatically update when a message is sent.
+    // You can use this function to manually update on messages received.
     rithmic_api.update_heartbeat(SysInfraType::TickerPlant);
+
+    /// we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
+    rithmic_api_arc.switch_heartbeat_required(&SysInfraType::TickerPlant, false).await.unwrap(); /// Stop any running heartbeat task
+    rithmic_api_arc.switch_heartbeat_required(&SysInfraType::TickerPlant, true).await.unwrap(); /// Start a heartbeat task
     
     let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
 

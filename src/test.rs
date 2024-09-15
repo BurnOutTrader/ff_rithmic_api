@@ -83,6 +83,10 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
     let _ = rithmic_api_arc.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
 
+    /// we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
+    rithmic_api_arc.switch_heartbeat_required(&SysInfraType::TickerPlant, false).await.unwrap();
+    rithmic_api_arc.switch_heartbeat_required(&SysInfraType::TickerPlant, true).await.unwrap();
+
     // Logout and Shutdown all connections
     rithmic_api_arc.shutdown_all().await?;
 

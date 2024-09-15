@@ -7,6 +7,7 @@ use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc};
 use std::time::{Duration, Instant};
 use dashmap::DashMap;
+use dashmap::mapref::one::RefMut;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
 use crate::credentials::RithmicCredentials;
@@ -40,6 +41,8 @@ pub struct RithmicApiClient {
 
     /// Keep a map of heartbeat tasks so that we can cut the loop when we shut down a plant conenction
     heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
+
+    heartbeat_required: DashMap<SysInfraType, Arc<RwLock<bool>>>,
 }
 
 impl RithmicApiClient {
@@ -54,13 +57,8 @@ impl RithmicApiClient {
             last_message_time: Arc::new(DashMap::with_capacity(5)),
             system_name: DashMap::with_capacity(5),
             heartbeats: DashMap::with_capacity(5),
+            heartbeat_required: DashMap::with_capacity(5),
         }
-    }
-
-    /// This function updates the last message time DashMap to reset the heartbeat countdown.
-    /// If we have a race condition in live testing this property object may need to incorporate a lock
-    pub fn update_heartbeat(&self, plant: SysInfraType) {
-        self.last_message_time.insert(plant, Instant::now());
     }
 
     pub async fn get_system_name(&self, plant: &SysInfraType) -> Option<String> {
@@ -311,6 +309,51 @@ impl RithmicApiClient {
         Ok(())
     }
 
+    /// This function updates the last message time DashMap to reset the heartbeat countdown.
+    /// If we have a race condition in live testing this property object may need to incorporate a lock
+    pub fn update_heartbeat(&self, plant: SysInfraType) {
+        self.last_message_time.insert(plant, Instant::now());
+    }
+
+    /// Change the requirements for heart beat, if we are streaming data from the plant we can switch this to no to disable the heartbeat and stop the heartbeat task.
+    /// if yes and no heartbeat task is present one will be started.
+    /// if no and a heartbeat task is started it will be stopped.
+    pub async fn switch_heartbeat_required(&self, plant: &SysInfraType, requirement: bool) -> Result<(), RithmicApiError> {
+        match self.heartbeat_required.get(plant) {
+            None => {
+                self.heartbeat_required.insert(plant.clone(), Arc::new(RwLock::new(requirement)));
+                if requirement {
+                    return match self.start_heartbeat(plant.clone()).await {
+                        Ok(_) => Ok(()),
+                        Err(e) => Err(e)
+                    }
+                }
+                Ok(())
+            }
+            Some(required_lock) => {
+                let original_requirement = required_lock.read().await.clone();
+                if original_requirement == requirement {
+                    return Ok(())
+                }
+                *required_lock.write().await = requirement;
+                //require a heartbeat and don't have one, start it.
+                if !self.heartbeats.contains_key(plant) && requirement == true {
+                    return match self.start_heartbeat(plant.clone()).await {
+                        Ok(_) => Ok(()),
+                        Err(e) => Err(e)
+                    }
+                }
+                //if we no longer require a heartbeat and if we have one, abort it.
+                else if requirement == false {
+                    if let Some((_, heartbeat)) = self.heartbeats.remove(plant) {
+                        heartbeat.abort();
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+
     pub async fn start_heartbeat(
         &self,
         plant: SysInfraType,
@@ -320,6 +363,7 @@ impl RithmicApiClient {
             None => return Err(RithmicApiError::ClientErrorDebug("No heartbeat interval recorded at log in, please logout and login again".to_string())),
             Some(hb) => hb
         }.clone();
+
 
         let last_message = self.last_message_time.clone();
         let writer = match self.plant_writer.get(&plant) {
