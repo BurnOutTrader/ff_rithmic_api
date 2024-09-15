@@ -321,7 +321,7 @@ impl RithmicApiClient {
         match self.heartbeat_required.get(plant) {
             None => {
                 self.heartbeat_required.insert(plant.clone(), Arc::new(RwLock::new(requirement)));
-                if requirement {
+                if requirement == true {
                     return match self.start_heartbeat(plant.clone()).await {
                         Ok(_) => Ok(()),
                         Err(e) => Err(e)
