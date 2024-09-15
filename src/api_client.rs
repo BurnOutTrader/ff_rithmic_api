@@ -7,7 +7,6 @@ use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc};
 use std::time::{Duration, Instant};
 use dashmap::DashMap;
-use dashmap::mapref::one::RefMut;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
 use crate::credentials::RithmicCredentials;
