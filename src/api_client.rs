@@ -408,7 +408,8 @@ impl RithmicApiClient {
                 loop {
                     sleep(heartbeat_interval - Duration::from_millis(500)).await;
                     if let Some(last_msg_time) = last_message.get(&plant) {
-                        if Instant::now() < *last_msg_time.value() + heartbeat_interval - Duration::from_millis(500) {
+                        let expiration_time = *last_msg_time.value() + heartbeat_interval - Duration::from_millis(500);
+                        if Instant::now() < expiration_time {
                             continue
                         }
                         let mut sender = writer.lock().await;
