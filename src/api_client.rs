@@ -5,7 +5,7 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc};
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use dashmap::DashMap;
 use futures_util::stream::{SplitSink, SplitStream};
 use tokio::sync::{Mutex, RwLock};
@@ -15,7 +15,7 @@ use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestL
 use crate::errors::RithmicApiError;
 use prost::encoding::{decode_key, decode_varint, WireType};
 use tokio::task::JoinHandle;
-use tokio::time::sleep;
+use tokio::time::{sleep_until, Instant};
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
@@ -405,9 +405,9 @@ impl RithmicApiClient {
             let last_message = last_message.clone();
             let writer = writer.clone();
             async move {
-                let mut expiration_time = *Instant::now() + heartbeat_interval - Duration::from_millis(500);
+                let mut expiration_time: Instant = Instant::now() + heartbeat_interval - Duration::from_millis(500);
                 loop {
-                    sleep(heartbeat_interval - Duration::from_millis(500)).await;
+                    sleep_until(expiration_time).await;
                     if let Some(last_msg_time) = last_message.get(&plant) {
                         if Instant::now() < expiration_time {
                             continue
