@@ -32,6 +32,7 @@ pub struct RithmicApiClient {
     heart_beat_intervals: DashMap<SysInfraType, Duration>,
 
     /// The time the last message was sent, this is used to determine if we need to send a heartbeat.
+    /// If we have a race condition in live testing this property object may need to incorporate a lock
     last_message_time: Arc<DashMap<SysInfraType, Instant>>,
 
     /// The system name for the associated plant
@@ -54,6 +55,12 @@ impl RithmicApiClient {
             system_name: DashMap::with_capacity(5),
             heartbeats: DashMap::with_capacity(5),
         }
+    }
+
+    /// This function updates the last message time DashMap to reset the heartbeat countdown.
+    /// If we have a race condition in live testing this property object may need to incorporate a lock
+    pub fn update_heartbeat(&self, plant: SysInfraType) {
+        self.last_message_time.insert(plant, Instant::now());
     }
 
     pub async fn get_system_name(&self, plant: &SysInfraType) -> Option<String> {

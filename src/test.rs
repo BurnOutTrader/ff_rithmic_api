@@ -113,6 +113,7 @@ pub async fn handle_responses_from_ticker_plant(
         const PLANT: SysInfraType = SysInfraType::TickerPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
+            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     match message {
@@ -411,6 +412,7 @@ pub async fn handle_responses_from_order_plant(
         const PLANT: SysInfraType = SysInfraType::OrderPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
+            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     match message {
@@ -772,6 +774,7 @@ pub async fn handle_responses_from_history_plant(
         const PLANT: SysInfraType = SysInfraType::HistoryPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
+            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
@@ -946,6 +949,7 @@ pub async fn handle_responses_from_pnl_plant(
         const PLANT: SysInfraType = SysInfraType::PnlPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
+            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
@@ -1084,6 +1088,7 @@ pub async fn handle_responses_from_repo_plant(
         const PLANT: SysInfraType = SysInfraType::RepositoryPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
+            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
