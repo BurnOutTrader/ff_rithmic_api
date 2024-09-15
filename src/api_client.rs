@@ -408,25 +408,24 @@ impl RithmicApiClient {
                 loop {
                     sleep(heartbeat_interval - Duration::from_millis(500)).await;
                     if let Some(last_msg_time) = last_message.get(&plant) {
-                        if Instant::now() >= *last_msg_time.value() + heartbeat_interval - Duration::from_millis(500) {
-                            let mut sender = writer.lock().await;
-                            match sender.send(Message::Binary(prefixed_msg.clone())).await {
-                                Ok(_) => {},
-                                Err(e) => {
-                                    eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e);
-                                    break;
-                                }
-                            }
-                            last_message_time.insert(plant.clone(), Instant::now());
+                        if Instant::now() < *last_msg_time.value() + heartbeat_interval - Duration::from_millis(500) {
+                            continue
                         }
+                        let mut sender = writer.lock().await;
+                        match sender.send(Message::Binary(prefixed_msg.clone())).await {
+                            Ok(_) => {},
+                            Err(e) => {
+                                eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e);
+                                break;
+                            }
+                        }
+                        last_message_time.insert(plant.clone(), Instant::now());
                     }
                 }
             }
         });
-
         // Store the task handle in the DashMap
         self.heartbeats.insert(plant, task_handle);
-
         Ok(())
     }
 
