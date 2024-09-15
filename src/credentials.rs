@@ -13,7 +13,8 @@ pub struct RithmicCredentials {
     pub aggregated_quotes: bool,
     pub template_version: String,
     pub pem: String,
-    pub base_url: String
+    pub base_url: String,
+    pub broker: String
 }
 
 impl RithmicCredentials {

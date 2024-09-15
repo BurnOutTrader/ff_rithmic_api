@@ -32,7 +32,8 @@ async fn main() {
         aggregated_quotes: false,
         template_version: "5.27".to_string(),
         pem: String::from("rithmic_ssl_cert_auth_params.pem"),
-        base_url: "wss://rituz00100.rithmic.com:443".to_string()
+        base_url: "wss://rituz00100.rithmic.com:443".to_string(),
+        broker: "Test"
     };
     
     // Save credentials to file "rithmic_credentials.toml" is in the .gitignore
