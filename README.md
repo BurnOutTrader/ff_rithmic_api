@@ -13,7 +13,7 @@ Hint: some Response types don't start with the word Response as shown in the Rit
 ## Not Included
 No rate limiting. \
 No Auto reconnect. \
-Not ensuring SSL, we are using a  MaybeTlsStream, since the domain name is "wss://" I assume this is properly completing the handshake.
+Not ensuring SSL, we are using a  MaybeTlsStream, since the domain name is "wss://" I assume this is properly completing the handshake. \
 Not thoroughly tested, if you experience a locking behaviour, try applying a lock to the fn `api_client.update_heartbeat();` I am not sure how this fn will keep up in async contexts if misused.
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
