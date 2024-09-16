@@ -421,7 +421,7 @@ impl RithmicApiClient {
                                 break;
                             }
                         }
-                        last_message_time.insert(plant.clone(), Instant::now());
+                        last_message.insert(plant.clone(), Instant::now());
                     }
                 }
             }
