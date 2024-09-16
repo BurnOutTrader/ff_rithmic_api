@@ -409,6 +409,7 @@ impl RithmicApiClient {
                 loop {
                     sleep_until(expiration_time).await;
                     if let Some(last_msg_time) = last_message.get(&plant) {
+                        expiration_time = *last_msg_time + heartbeat_interval - Duration::from_millis(500);
                         if Instant::now() < expiration_time {
                             continue
                         }
@@ -421,7 +422,6 @@ impl RithmicApiClient {
                             }
                         }
                         last_message_time.insert(plant.clone(), Instant::now());
-                        expiration_time = *last_msg_time + heartbeat_interval - Duration::from_millis(500)
                     }
                 }
             }
