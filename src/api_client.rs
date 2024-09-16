@@ -396,7 +396,6 @@ impl RithmicApiClient {
                 Ok(_) => {},
                 Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
             }
-            last_message_time.insert(plant.clone(), Instant::now());
         }
 
         // Spawn the heartbeat task and store the handle
@@ -421,7 +420,6 @@ impl RithmicApiClient {
                                 break;
                             }
                         }
-                        last_message_time.insert(plant.clone(), Instant::now());
                     }
                 }
             }
