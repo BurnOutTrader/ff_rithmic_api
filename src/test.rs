@@ -1,4 +1,3 @@
-/*
 use std::io::Cursor;
 use std::sync::Arc;
 use futures_util::stream::SplitStream;
@@ -93,8 +92,8 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-*//*
-pub async fn handle_received_responses(
+
+async fn handle_received_responses(
     client: Arc<RithmicApiClient>,
     reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     plant: SysInfraType
@@ -110,7 +109,7 @@ pub async fn handle_received_responses(
 
 #[allow(dead_code)]
 /// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
-pub async fn handle_responses_from_ticker_plant(
+async fn handle_responses_from_ticker_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
@@ -409,7 +408,7 @@ pub async fn handle_responses_from_ticker_plant(
     Ok(())
 }
 #[allow(dead_code)]
-pub async fn handle_responses_from_order_plant(
+async fn handle_responses_from_order_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
@@ -771,7 +770,7 @@ pub async fn handle_responses_from_order_plant(
 }
 
 #[allow(dead_code)]
-pub async fn handle_responses_from_history_plant(
+async fn handle_responses_from_history_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
@@ -946,7 +945,7 @@ pub async fn handle_responses_from_history_plant(
 
 
 #[allow(dead_code)]
-pub async fn handle_responses_from_pnl_plant(
+async fn handle_responses_from_pnl_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
@@ -1085,7 +1084,7 @@ pub async fn handle_responses_from_pnl_plant(
 
 
 #[allow(dead_code)]
-pub async fn handle_responses_from_repo_plant(
+async fn handle_responses_from_repo_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
@@ -1227,4 +1226,4 @@ pub async fn handle_responses_from_repo_plant(
         }
     });
     Ok(())
-}*/
+}
