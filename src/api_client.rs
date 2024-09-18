@@ -204,7 +204,7 @@ impl RithmicApiClient {
             aggregated_quotes: Some(self.credentials.aggregated_quotes.clone()),
         };
         RithmicApiClient::send_single_protobuf_message(&mut stream, &login_request).await?;
-
+        self.last_message_time.insert(plant.clone(), Instant::now());
         // Login Response 11 From Server
         let response: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
         if let Some(heartbeat_interval) = response.heartbeat_interval {
@@ -388,17 +388,6 @@ impl RithmicApiClient {
         prefixed_msg.extend(buf);
 
         let last_message_time = self.last_message_time.clone();
-        sleep(Duration::from_millis(50)).await;
-        // Send an initial heartbeat request
-        {
-            let mut sender = writer.lock().await;
-            match sender.send(Message::Binary(prefixed_msg.clone())).await {
-                Ok(_) => {},
-                Err(e) => eprintln!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)
-            }
-            last_message_time.insert(plant.clone(), Instant::now());
-        }
-
         // Spawn the heartbeat task and store the handle
         let task_handle = tokio::task::spawn({
             let plant = plant.clone();
