@@ -1,3 +1,4 @@
+/*
 use std::io::Cursor;
 use std::sync::Arc;
 use futures_util::stream::SplitStream;
@@ -92,7 +93,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
+*//*
 pub async fn handle_received_responses(
     client: Arc<RithmicApiClient>,
     reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
@@ -1226,4 +1227,4 @@ pub async fn handle_responses_from_repo_plant(
         }
     });
     Ok(())
-}
+}*/

@@ -9,8 +9,8 @@ toml = "*"
 dashmap ="*"
 prost ="*"
 prost-build = "0.13.2"
-tokio-tungstenite = { version = "0.23.1", features = ["stream", "native-tls"] }
 futures-util = "0.3.30"
 tokio =  { version = "*", features = ["full"] }
 thiserror = "*"
 tungstenite = "0.23.0"
+tokio-tungstenite = { version = "0.23.1", features = ["stream", "native-tls"] }
