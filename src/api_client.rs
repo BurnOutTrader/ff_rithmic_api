@@ -15,7 +15,7 @@ use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestL
 use crate::errors::RithmicApiError;
 use prost::encoding::{decode_key, decode_varint, WireType};
 use tokio::task::JoinHandle;
-use tokio::time::{sleep_until, Instant};
+use tokio::time::{sleep, sleep_until, Instant};
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
@@ -388,7 +388,7 @@ impl RithmicApiClient {
         prefixed_msg.extend(buf);
 
         let last_message_time = self.last_message_time.clone();
-
+        sleep(Duration::from_millis(50)).await;
         // Send an initial heartbeat request
         {
             let mut sender = writer.lock().await;
