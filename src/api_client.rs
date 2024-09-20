@@ -281,7 +281,7 @@ impl RithmicApiClient {
 
         self.connected_plant.write().await.retain(|x| *x != plant);
         self.system_name.remove(&plant);
-        if let Some(heartbeat_task) = self.heartbeats.get(&plant) {
+        if let Some(heartbeat_task) = self.heartbeats.remove(&plant) {
             heartbeat_task.value().abort();
         }
         println!("Safely shutdown rithmic split stream");
