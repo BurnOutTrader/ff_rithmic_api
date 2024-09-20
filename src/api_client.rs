@@ -15,7 +15,7 @@ use crate::rithmic_proto_objects::rti::{RequestHeartbeat, RequestLogin, RequestL
 use crate::errors::RithmicApiError;
 use prost::encoding::{decode_key, decode_varint, WireType};
 use tokio::task::JoinHandle;
-use tokio::time::{sleep, sleep_until, Instant};
+use tokio::time::{sleep_until, Instant};
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
@@ -203,6 +203,7 @@ impl RithmicApiClient {
             os_platform: None,
             aggregated_quotes: Some(self.credentials.aggregated_quotes.clone()),
         };
+
         RithmicApiClient::send_single_protobuf_message(&mut stream, &login_request).await?;
         self.last_message_time.insert(plant.clone(), Instant::now());
         // Login Response 11 From Server
@@ -215,6 +216,7 @@ impl RithmicApiClient {
         self.connected_plant.write().await.push(plant.clone());
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
         self.system_name.insert(plant.clone(), rithmic_server_name.clone());
+
         match self.start_heartbeat(plant).await {
             Ok(_) => Ok(ws_reader),
             Err(e) => {
@@ -245,7 +247,7 @@ impl RithmicApiClient {
         prefixed_msg.extend(buf);
 
         let writer = match self.plant_writer.get(plant) {
-            None => return Err(RithmicApiError::ClientErrorDebug(format!("You have not ran connect_and_login for this plant: {:?}", plant))),
+            None => return Err(RithmicApiError::Disconnected(format!("You have not ran connect_and_login for this plant: {:?}", plant))),
             Some(writer) => writer
         };
 
@@ -255,7 +257,7 @@ impl RithmicApiClient {
                 self.last_message_time.insert(plant.clone(), Instant::now());
                 Ok(())
             },
-            Err(e) => Err(RithmicApiError::ServerErrorDebug(format!("Failed to send RithmicMessage, possible disconnect, try reconnecting to plant {:?}: {}", plant, e)))
+            Err(e) => Err(RithmicApiError::Disconnected(e.to_string()))
         }
     }
 
@@ -387,7 +389,6 @@ impl RithmicApiClient {
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
 
-        let last_message_time = self.last_message_time.clone();
         // Spawn the heartbeat task and store the handle
         let task_handle = tokio::task::spawn({
             let plant = plant.clone();

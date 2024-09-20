@@ -19,4 +19,7 @@ pub enum RithmicApiError {
 
     #[error("Protobuf decode error: {0}")]
     ProtobufDecode(#[from] DecodeError),
+
+    #[error("Disconnected error: {0}")]
+    Disconnected(String)
 }
