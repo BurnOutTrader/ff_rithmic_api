@@ -230,7 +230,7 @@ impl RithmicApiClient {
     pub async fn send_message<T: ProstMessage>(
         &self,
         plant: SysInfraType,
-        message: &T
+        message: T
     ) -> Result<(), RithmicApiError> {
         let mut buf = Vec::new();
 
@@ -268,7 +268,7 @@ impl RithmicApiClient {
             template_id: 12,
             user_msg: vec![format!("{} Signing Out", self.credentials.app_name)],
         };
-        self.send_message(plant.clone(), &logout_request).await?;
+        self.send_message(plant.clone(), logout_request).await?;
 
         let  (_, ws_writer) = match self.plant_writer.remove(&plant) {
             None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
@@ -281,8 +281,8 @@ impl RithmicApiClient {
 
         self.connected_plant.write().await.retain(|x| *x != plant);
         self.system_name.remove(&plant);
-        if let Some(heartbeat_task) = self.heartbeats.remove(&plant) {
-            heartbeat_task.value().abort();
+        if let Some((_, heartbeat_task)) = self.heartbeats.remove(&plant) {
+            heartbeat_task.abort();
         }
         println!("Safely shutdown rithmic split stream");
         Ok(())

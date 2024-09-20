@@ -75,7 +75,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
-    match rithmic_api_arc.send_message(SysInfraType::TickerPlant, &heart_beat).await {
+    match rithmic_api_arc.send_message(SysInfraType::TickerPlant, heart_beat.clone()).await {
         Ok(_) => println!("Heart beat sent"),
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
@@ -87,7 +87,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await?;
 
     handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
-    let _ = rithmic_api_arc.send_message(SysInfraType::TickerPlant, &heart_beat).await?;
+    let _ = rithmic_api_arc.send_message(SysInfraType::TickerPlant, heart_beat).await?;
 
     // we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
     rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
@@ -194,7 +194,7 @@ async fn handle_responses_from_ticker_plant(
                                                     user_msg: vec![],
                                                     system_name: Some(client.get_system_name(PLANT).await.unwrap()),
                                                 };
-                                                client.send_message(PLANT, &request).await.unwrap();
+                                                client.send_message(PLANT, request).await.unwrap();
                                             }
                                         },
                                         101 => {
