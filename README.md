@@ -316,7 +316,7 @@ async fn main() {
         usecs: None,
     };
     // we can send the message to the specified plant.
-    rithmic_api.send_message(SysInfraType::TickerPlant, &heart_beat).await?;
+    rithmic_api.send_message(SysInfraType::TickerPlant, heart_beat).await?;
 
 
     // Starts an automatic heartbeat task which will run async in background.
