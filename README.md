@@ -188,7 +188,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     rithmic_api.shutdown_all().await?;
 
     // or Logout and Shutdown a single connection
-    //RithmicApiClient::shutdown_split_websocket(&rithmic_api, SysInfraType::TickerPlant).await?;
+    //rithmic_api.shutdown_split_websocket(SysInfraType::TickerPlant).await?;
 
     Ok(())
 }
