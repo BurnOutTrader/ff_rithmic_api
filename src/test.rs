@@ -80,6 +80,12 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
 
+    // Starts a heartbeat task
+    rithmic_api.switch_heartbeat_required(SysInfraType::TickerPlant, true).await;
+
+    // Disables any heartbeat task that is running for the plant
+    rithmic_api.switch_heartbeat_required(SysInfraType::TickerPlant, true).await;
+
     handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
     let _ = rithmic_api_arc.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
 
