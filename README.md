@@ -323,7 +323,7 @@ async fn main() {
     rithmic_api.switch_heartbeat_required(SysInfraType::TickerPlant, true).await;
 
     // Disables any heartbeat task that is running for the specified plant.
-    rithmic_api.switch_heartbeat_required(SysInfraType::TickerPlant, false).await;
+    rithmic_api.switch_heartbeat_required(&SysInfraType::TickerPlant, false).await;
 }
 ```
 
