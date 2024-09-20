@@ -41,7 +41,7 @@ pub struct RithmicApiClient {
     /// Keep a map of heartbeat tasks so that we can cut the loop when we shut down a plant conenction
     heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
 
-    heartbeat_required: DashMap<SysInfraType, Arc<RwLock<bool>>>,
+    heartbeat_required: DashMap<SysInfraType, bool>,
 }
 
 impl RithmicApiClient {
@@ -322,7 +322,7 @@ impl RithmicApiClient {
     pub async fn switch_heartbeat_required(&self, plant: &SysInfraType, requirement: bool) -> Result<(), RithmicApiError> {
         match self.heartbeat_required.get(plant) {
             None => {
-                self.heartbeat_required.insert(plant.clone(), Arc::new(RwLock::new(requirement)));
+                self.heartbeat_required.insert(plant.clone(), requirement);
                 if requirement == true {
                     return match self.start_heartbeat(plant.clone()).await {
                         Ok(_) => Ok(()),
@@ -331,12 +331,12 @@ impl RithmicApiClient {
                 }
                 Ok(())
             }
-            Some(required_lock) => {
-                let original_requirement = required_lock.read().await.clone();
+            Some(required) => {
+                let original_requirement = required.value().clone();
                 if original_requirement == requirement {
                     return Ok(())
                 }
-                *required_lock.write().await = requirement;
+                self.heartbeat_required.insert(plant.clone(), requirement);
                 //require a heartbeat and don't have one, start it.
                 if !self.heartbeats.contains_key(plant) && requirement == true {
                     return match self.start_heartbeat(plant.clone()).await {
