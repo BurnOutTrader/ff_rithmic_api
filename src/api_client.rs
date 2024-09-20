@@ -40,8 +40,6 @@ pub struct RithmicApiClient {
 
     /// Keep a map of heartbeat tasks so that we can cut the loop when we shut down a plant conenction
     heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
-
-    heartbeat_required: DashMap<SysInfraType, bool>,
 }
 
 impl RithmicApiClient {
@@ -56,7 +54,6 @@ impl RithmicApiClient {
             last_message_time: Arc::new(DashMap::with_capacity(5)),
             system_name: DashMap::with_capacity(5),
             heartbeats: DashMap::with_capacity(5),
-            heartbeat_required: DashMap::with_capacity(5),
         }
     }
 
@@ -320,9 +317,9 @@ impl RithmicApiClient {
     /// if yes and no heartbeat task is present one will be started.
     /// if no and a heartbeat task is started it will be stopped.
     pub async fn switch_heartbeat_required(&self, plant: &SysInfraType, requirement: bool) -> Result<(), RithmicApiError> {
-        match self.heartbeat_required.get(plant) {
+        match self.heartbeats.get(plant) {
             None => {
-                self.heartbeat_required.insert(plant.clone(), requirement);
+                //self.heartbeat_required.insert(plant.clone(), requirement);
                 if requirement == true {
                     return match self.start_heartbeat(plant.clone()).await {
                         Ok(_) => Ok(()),
@@ -331,21 +328,9 @@ impl RithmicApiClient {
                 }
                 Ok(())
             }
-            Some(required) => {
-                let original_requirement = required.value().clone();
-                if original_requirement == requirement {
-                    return Ok(())
-                }
-                self.heartbeat_required.insert(plant.clone(), requirement);
-                //require a heartbeat and don't have one, start it.
-                if !self.heartbeats.contains_key(plant) && requirement == true {
-                    return match self.start_heartbeat(plant.clone()).await {
-                        Ok(_) => Ok(()),
-                        Err(e) => Err(e)
-                    }
-                }
+            Some(_) => {
                 //if we no longer require a heartbeat and if we have one, abort it.
-                else if requirement == false {
+                if requirement == false {
                     if let Some((_, heartbeat)) = self.heartbeats.remove(plant) {
                         heartbeat.abort();
                     }
