@@ -197,7 +197,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 pub async fn handle_received_responses(
     client: &RithmicApiClient,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    _plant: SysInfraType,
+    plant: SysInfraType,
 ) -> Result<(), RithmicApiError> {
     //tokio::task::spawn(async move {
     while let Some(message) = reader.next().await {
@@ -238,9 +238,9 @@ pub async fn handle_received_responses(
                                         let request = RequestRithmicSystemGatewayInfo {
                                             template_id: 20,
                                             user_msg: vec![],
-                                            system_name: Some(client.get_system_name(&plant).await.unwrap()),
+                                            system_name: Some(client.get_system_name(plant.clone()).await.unwrap()),
                                         };
-                                        client.send_message(plant, &request).await?
+                                        client.send_message(plant, request).await?
                                     }
                                 },
                                 21 => {
