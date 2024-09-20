@@ -182,7 +182,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     rithmic_api_arc.switch_heartbeat_required(&SysInfraType::TickerPlant, false).await.unwrap(); /// Stop any running heartbeat task
     rithmic_api_arc.switch_heartbeat_required(&SysInfraType::TickerPlant, true).await.unwrap(); /// Start a heartbeat task if none started
     
-    let _ = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
+    let _ = rithmic_api.send_message(SysInfraType::TickerPlant, &heart_beat).await?;
 
     // Logout and Shutdown all connections
     rithmic_api.shutdown_all().await?;
@@ -316,14 +316,14 @@ async fn main() {
         usecs: None,
     };
     // we can send the message to the specified plant.
-    let send_message = rithmic_api.send_message(&SysInfraType::TickerPlant, &heart_beat).await?;
+    let send_message = rithmic_api.send_message(SysInfraType::TickerPlant, &heart_beat).await?;
 
 
     // Starts an automatic heartbeat task which will run async in background.
     rithmic_api.switch_heartbeat_required(SysInfraType::TickerPlant, true).await;
 
     // Disables any heartbeat task that is running for the specified plant.
-    rithmic_api.switch_heartbeat_required(&SysInfraType::TickerPlant, false).await;
+    rithmic_api.switch_heartbeat_required(SysInfraType::TickerPlant, false).await;
 }
 ```
 

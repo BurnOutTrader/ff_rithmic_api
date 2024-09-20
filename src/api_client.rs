@@ -57,16 +57,16 @@ impl RithmicApiClient {
         }
     }
 
-    pub async fn get_system_name(&self, plant: &SysInfraType) -> Option<String> {
-        match self.system_name.get(plant) {
+    pub async fn get_system_name(&self, plant: SysInfraType) -> Option<String> {
+        match self.system_name.get(&plant) {
             None => None,
             Some(name) => Some(name.clone())
         }
     }
 
     /// get the writer for the specified plant
-    pub async fn get_writer(&self,  plant: &SysInfraType) -> Option<Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>> {
-        match self.plant_writer.get(plant) {
+    pub async fn get_writer(&self,  plant: SysInfraType) -> Option<Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>> {
+        match self.plant_writer.get(&plant) {
             None => None,
             Some(writer) => Some(writer.clone())
         }
@@ -229,7 +229,7 @@ impl RithmicApiClient {
     /// Send a message on the write half of the plant stream.
     pub async fn send_message<T: ProstMessage>(
         &self,
-        plant: &SysInfraType,
+        plant: SysInfraType,
         message: &T
     ) -> Result<(), RithmicApiError> {
         let mut buf = Vec::new();
@@ -243,7 +243,7 @@ impl RithmicApiClient {
         let mut prefixed_msg = length.to_be_bytes().to_vec();
         prefixed_msg.extend(buf);
 
-        let writer = match self.plant_writer.get(plant) {
+        let writer = match self.plant_writer.get(&plant) {
             None => return Err(RithmicApiError::Disconnected(format!("You have not ran connect_and_login for this plant: {:?}", plant))),
             Some(writer) => writer
         };
@@ -268,7 +268,7 @@ impl RithmicApiClient {
             template_id: 12,
             user_msg: vec![format!("{} Signing Out", self.credentials.app_name)],
         };
-        self.send_message(&plant, &logout_request).await?;
+        self.send_message(plant.clone(), &logout_request).await?;
 
         let  (_, ws_writer) = match self.plant_writer.remove(&plant) {
             None => return Err(RithmicApiError::ServerErrorDebug(format!("No writer found for rithmic plant: {:?}", plant))),
@@ -316,8 +316,8 @@ impl RithmicApiClient {
     /// Change the requirements for heart beat, if we are streaming data from the plant we can switch this to no to disable the heartbeat and stop the heartbeat task.
     /// if yes and no heartbeat task is present one will be started.
     /// if no and a heartbeat task is started it will be stopped.
-    pub async fn switch_heartbeat_required(&self, plant: &SysInfraType, requirement: bool) -> Result<(), RithmicApiError> {
-        match self.heartbeats.get(plant) {
+    pub async fn switch_heartbeat_required(&self, plant: SysInfraType, requirement: bool) -> Result<(), RithmicApiError> {
+        match self.heartbeats.get(&plant) {
             None => {
                 //self.heartbeat_required.insert(plant.clone(), requirement);
                 if requirement == true {
@@ -331,7 +331,7 @@ impl RithmicApiClient {
             Some(_) => {
                 //if we no longer require a heartbeat and if we have one, abort it.
                 if requirement == false {
-                    if let Some((_, heartbeat)) = self.heartbeats.remove(plant) {
+                    if let Some((_, heartbeat)) = self.heartbeats.remove(&plant) {
                         heartbeat.abort();
                     }
                 }
