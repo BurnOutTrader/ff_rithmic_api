@@ -2,4 +2,4 @@
 /rithmic_credentials.toml
 rithmic_credentials.toml
 src/proto
-/src/rithmic_ssl_cert_auth_params.pem
+src/rithmic_ssl_cert_auth_params.pem
