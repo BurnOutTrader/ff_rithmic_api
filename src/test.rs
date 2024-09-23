@@ -1,5 +1,7 @@
 use std::io::Cursor;
 use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 use futures_util::stream::SplitStream;
 use futures_util::StreamExt;
 use crate::api_client::RithmicApiClient;
@@ -51,20 +53,24 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     // Establish connections, sign in and receive back the websocket readers
     let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::TickerPlant).await);
+    handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
 
-    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::HistoryPlant).await?;
+    let history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::HistoryPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::HistoryPlant).await);
+    handle_received_responses(rithmic_api_arc.clone(), history_receiver, SysInfraType::HistoryPlant).await?;
 
-    let _order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
+    let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
+    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant).await?;
 
-    let _pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
+    let pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::PnlPlant).await);
-
+    handle_received_responses(rithmic_api_arc.clone(), pnl_receiver, SysInfraType::PnlPlant).await?;
     // The repo server is only used for data agreements
-    let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
-    assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
 
+    let repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
+    handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;
 
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
     let heart_beat = RequestHeartbeat {
@@ -80,18 +86,11 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
 
-    // Starts a heartbeat task
-    rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await?;
-
-    // Disables any heartbeat task that is running for the plant
-    rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await?;
-
-    handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
-    let _ = rithmic_api_arc.send_message(SysInfraType::TickerPlant, heart_beat).await?;
-
     // we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
-    rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
-    rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
+    //rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
+   // rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
+
+    sleep(Duration::from_secs(10));
 
     // Logout and Shutdown all connections
     rithmic_api_arc.shutdown_all().await?;
@@ -187,14 +186,6 @@ async fn handle_responses_from_ticker_plant(
                                                 // Response Heartbeat
                                                 // From Server
                                                 println!("Response Heartbeat (Template ID: 19) from Server: {:?}", msg);
-
-                                                // Example of sending a system gateway info request afterward
-                                                let request = RequestRithmicSystemGatewayInfo {
-                                                    template_id: 20,
-                                                    user_msg: vec![],
-                                                    system_name: Some(client.get_system_name(PLANT).await.unwrap()),
-                                                };
-                                                client.send_message(PLANT, request).await.unwrap();
                                             }
                                         },
                                         101 => {
