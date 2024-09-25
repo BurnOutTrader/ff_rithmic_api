@@ -14,7 +14,6 @@ pub struct RithmicCredentials {
     pub template_version: String,
     pub pem: String,
     pub base_url: String,
-    pub broker: String
 }
 
 impl RithmicCredentials {

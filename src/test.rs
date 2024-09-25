@@ -97,8 +97,6 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
 
-
-
     // we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
     //rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
    // rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
