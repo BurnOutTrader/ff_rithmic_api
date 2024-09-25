@@ -1,3 +1,5 @@
+use tokio::sync::mpsc;
+use crate::rithmic_proto_objects::rti::request_account_list::UserType;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -10,6 +12,7 @@ use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::errors::RithmicApiError;
 use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::Message;
 use crate::rithmic_proto_objects::rti::{
@@ -29,7 +32,7 @@ use crate::rithmic_proto_objects::rti::{
     ResponseShowOrderHistoryDetail, ResponseShowOrderHistorySummary, ResponseShowOrders, ResponseSubscribeForOrderUpdates,
     ResponseSubscribeToBracketUpdates, ResponseTickBarReplay, ResponseTickBarUpdate, ResponseTimeBarReplay, ResponseTimeBarUpdate,
     ResponseTradeRoutes, ResponseUpdateStopBracketLevel, ResponseUpdateTargetBracketLevel, ResponseVolumeProfileMinuteBars,
-    RithmicOrderNotification, SymbolMarginRate, TickBar, TimeBar, TradeRoute, TradeStatistics, UpdateEasyToBorrowList
+    RithmicOrderNotification, SymbolMarginRate, TickBar, TimeBar, TradeRoute, TradeStatistics, UpdateEasyToBorrowList, RequestAccountList
 };
 
 
@@ -51,26 +54,26 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     let rithmic_api_arc = Arc::new(rithmic_api);
 
     // Establish connections, sign in and receive back the websocket readers
-    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
+/*    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::TickerPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
 
     let history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::HistoryPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::HistoryPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), history_receiver, SysInfraType::HistoryPlant).await?;
-
+    handle_received_responses(rithmic_api_arc.clone(), history_receiver, SysInfraType::HistoryPlant).await?;*/
+    let (sender, mut receiver) = mpsc::channel(100);
     let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant).await?;
+    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant,sender).await?;
 
-    let pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
+   /* let pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::PnlPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), pnl_receiver, SysInfraType::PnlPlant).await?;
     // The repo server is only used for data agreements
 
     let repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;
+    handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;*/
 
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
     let heart_beat = RequestHeartbeat {
@@ -80,17 +83,29 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         usecs: None,
     };
 
+    let accounts = RequestAccountList {
+        template_id: 302,
+        user_msg: vec![],
+        fcm_id: None,
+        ib_id: None,
+        user_type: Some(UserType::Trader.into())
+    };
+
     // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
-    match rithmic_api_arc.send_message(SysInfraType::TickerPlant, heart_beat.clone()).await {
-        Ok(_) => println!("Heart beat sent"),
+    match rithmic_api_arc.send_message(SysInfraType::OrderPlant, accounts.clone()).await {
+        Ok(_) => println!("request sent"),
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
+
+
 
     // we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
     //rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
    // rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
 
-    sleep(Duration::from_secs(10));
+    while let Some(message) = receiver.recv().await {
+
+    }
 
     // Logout and Shutdown all connections
     rithmic_api_arc.shutdown_all().await?;
@@ -101,11 +116,12 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 async fn handle_received_responses(
     client: Arc<RithmicApiClient>,
     reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    plant: SysInfraType
+    plant: SysInfraType,
+    sender: Sender<String>
 ) -> Result<(), RithmicApiError> {
     match plant {
         SysInfraType::TickerPlant => handle_responses_from_ticker_plant(client, reader).await,
-        SysInfraType::OrderPlant => handle_responses_from_order_plant(client, reader).await,
+        SysInfraType::OrderPlant => handle_responses_from_order_plant(client, reader, sender).await,
         SysInfraType::HistoryPlant => handle_responses_from_history_plant(client, reader).await,
         SysInfraType::PnlPlant => handle_responses_from_pnl_plant(client, reader).await,
         SysInfraType::RepositoryPlant => handle_responses_from_repo_plant(client, reader).await,
@@ -121,7 +137,7 @@ async fn handle_responses_from_ticker_plant(
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::TickerPlant;
         while let Some(message) = reader.next().await {
-            println!("Message received: {:?}", message);
+            //println!("Message received: {:?}", message);
             client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
@@ -408,6 +424,7 @@ async fn handle_responses_from_ticker_plant(
 async fn handle_responses_from_order_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    sender: Sender<String>
 ) -> Result<(), RithmicApiError> {
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::OrderPlant;
@@ -424,6 +441,7 @@ async fn handle_responses_from_order_plant(
                         Message::Binary(bytes) => {
                             // spawn a new task so that we can handle next message faster.
                             let client = client.clone();
+                            let sender = sender.clone();
                             tokio::task::spawn(async move {
                                 //messages will be forwarded here
                                 let mut cursor = Cursor::new(bytes);
@@ -483,7 +501,9 @@ async fn handle_responses_from_order_plant(
                                             if let Ok(msg) = ResponseAccountList::decode(&message_buf[..]) {
                                                 // Account List Response
                                                 // From Server
+                                                let string = format!("Account List Response (Template ID: 303) from Server: {:?}", msg);
                                                 println!("Account List Response (Template ID: 303) from Server: {:?}", msg);
+                                                sender.send(string).await;
                                             }
                                         },
                                         305 => {

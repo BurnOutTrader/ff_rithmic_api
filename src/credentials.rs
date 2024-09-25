@@ -6,7 +6,7 @@ use toml;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RithmicCredentials {
     pub user: String,
-    pub system_name: String,
+    pub system_name: Option<String>,
     pub password: String,
     pub app_name: String,
     pub app_version: String,
