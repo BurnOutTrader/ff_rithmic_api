@@ -1,10 +1,9 @@
+
+use futures_util::stream::SplitStream;
 use tokio::sync::mpsc;
 use crate::rithmic_proto_objects::rti::request_account_list::UserType;
 use std::io::Cursor;
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
-use futures_util::stream::SplitStream;
 use futures_util::StreamExt;
 use crate::api_client::RithmicApiClient;
 use crate::credentials::RithmicCredentials;
@@ -15,6 +14,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::Message;
+#[allow(unused_imports)]
 use crate::rithmic_proto_objects::rti::{
     AccountListUpdates, AccountPnLPositionUpdate, AccountRmsUpdates, BestBidOffer, BracketUpdates, DepthByOrder,
     DepthByOrderEndEvent, EndOfDayPrices, ExchangeOrderNotification, FrontMonthContractUpdate, IndicatorPrices,
@@ -45,7 +45,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     // Define credentials
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-    let app_name = credentials.app_name.clone();
+    let _app_name = credentials.app_name.clone();
     // Save credentials to file
     //credentials.save_credentials_to_file(&file_path)?;
 
@@ -76,12 +76,12 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;*/
 
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
-    let heart_beat = RequestHeartbeat {
+/*    let heart_beat = RequestHeartbeat {
         template_id: 18,
         user_msg: vec![format!("{} Testing heartbeat", app_name)],
         ssboe: None,
         usecs: None,
-    };
+    };*/
 
     let accounts = RequestAccountList {
         template_id: 302,
@@ -101,7 +101,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     //rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
    // rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
 
-    while let Some(message) = receiver.recv().await {
+    while let Some(_message) = receiver.recv().await {
 
     }
 
@@ -501,7 +501,7 @@ async fn handle_responses_from_order_plant(
                                                 // From Server
                                                 let string = format!("Account List Response (Template ID: 303) from Server: {:?}", msg);
                                                 println!("Account List Response (Template ID: 303) from Server: {:?}", msg);
-                                                sender.send(string).await;
+                                                let _ = sender.send(string).await;
                                             }
                                         },
                                         305 => {

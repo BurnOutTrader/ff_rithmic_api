@@ -12,7 +12,6 @@ pub struct RithmicCredentials {
     pub app_version: String,
     pub aggregated_quotes: bool,
     pub template_version: String,
-    pub pem: String,
     pub base_url: String,
 }
 
