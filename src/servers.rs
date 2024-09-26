@@ -4,8 +4,13 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use crate::errors::RithmicApiError;
 use toml::Value;
+use rkyv::{Archive, Deserialize as Deserialize_rkyv, Serialize as Serialize_rkyv};
+use strum_macros::Display;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
+#[derive(Serialize, Deserialize, Clone, Eq, Serialize_rkyv, Deserialize_rkyv,
+    Archive, PartialEq, Debug, Hash, PartialOrd, Ord, Display)]
+#[archive(compare(PartialEq), check_bytes)]
+#[archive_attr(derive(Debug))]
 pub enum RithmicServer {
     Chicago,
     Sydney,
@@ -20,6 +25,23 @@ pub enum RithmicServer {
     Tokyo,
     Singapore,
     Test
+}
+
+#[allow(dead_code)]
+impl RithmicServer {
+    fn from_bytes(archived: &[u8]) -> Result<RithmicServer, RithmicApiError> {
+        // If the archived bytes do not end with the delimiter, proceed as before
+        match rkyv::from_bytes::<RithmicServer>(archived) {
+            //Ignore this warning: Trait `Deserialize<ResponseType, SharedDeserializeMap>` is not implemented for `AccountInfoType` [E0277]
+            Ok(response) => Ok(response),
+            Err(e) => Err(RithmicApiError::ClientErrorDebug(e.to_string())),
+        }
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        let vec = rkyv::to_bytes::<_, 256>(self).unwrap();
+        vec.into()
+    }
 }
 impl FromStr for RithmicServer {
     type Err = String;

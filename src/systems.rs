@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
+use rkyv::{Archive, Deserialize as Deserialize_rkyv, Serialize as Serialize_rkyv};
+use strum_macros::Display;
+use crate::errors::RithmicApiError;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
+#[derive(Serialize, Deserialize, Clone, Eq, Serialize_rkyv, Deserialize_rkyv,
+    Archive, PartialEq, Debug, Hash, PartialOrd, Ord, Display)]
+#[archive(compare(PartialEq), check_bytes)]
+#[archive_attr(derive(Debug))]
 pub enum RithmicSystem {
     Rithmic01,
     Rithmic04Colo,
@@ -18,6 +24,23 @@ pub enum RithmicSystem {
     FourPropTrader,
     FastTrackTrading,
     Test
+}
+
+#[allow(dead_code)]
+impl RithmicSystem {
+    fn from_bytes(archived: &[u8]) -> Result<RithmicSystem, RithmicApiError> {
+        // If the archived bytes do not end with the delimiter, proceed as before
+        match rkyv::from_bytes::<RithmicSystem>(archived) {
+            //Ignore this warning: Trait `Deserialize<ResponseType, SharedDeserializeMap>` is not implemented for `AccountInfoType` [E0277]
+            Ok(response) => Ok(response),
+            Err(e) => Err(RithmicApiError::ClientErrorDebug(e.to_string())),
+        }
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        let vec = rkyv::to_bytes::<_, 256>(self).unwrap();
+        vec.into()
+    }
 }
 
 impl RithmicSystem {
