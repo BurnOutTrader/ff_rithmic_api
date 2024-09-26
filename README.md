@@ -5,7 +5,7 @@ The api is currently contains the full functionality for rithmic RProtocol api.
 
 Be aware! Tests will fail when the market is closed.
 
-You will need a servers.toml file for your API, you can use this template, you only need and address for the specific `RithmicServer`s that you intend to use.
+You will need a servers.toml file for your API, you can use this template, you only need an address for the specific `RithmicServer`s that you intend to use.
 ## Servers
 ```toml
 [rithmic_servers]
