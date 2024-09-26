@@ -27,13 +27,15 @@ Step 2: Load credentials and create an instance of a RithmicApiClient:
 #[tokio::main]
 async fn main() {
     // On first run create the credentials
-    let credentials = RithmicCredentials {
-        user: "".to_string(),
-        password: "".to_string(),
+    let new_credentials = RithmicCredentials {
+        user: "{ASK_RITHMIC_FOR_CREDENTIALS}",
+        server_name: RithmicServer::Test,
+        system_name: RithmicSystem::Test,
+        password: "password".to_string(),
+        server_domain: "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
     };
-    
     // Save credentials to file "rithmic_credentials.toml" is in the .gitignore
-    credentials.save_credentials_to_file("rithmic_credentials.toml").unwrap();
+    new_credentials.save_credentials_to_file("rithmic_credentials.toml").unwrap();
 
     // Define the file path for credentials
     let file_path = String::from("rithmic_credentials.toml".to_string());
