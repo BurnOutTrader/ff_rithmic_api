@@ -1,13 +1,8 @@
 use futures_util::stream::SplitStream;
-use tokio::sync::mpsc;
-use crate::rithmic_proto_objects::rti::request_account_list::UserType;
 use std::io::Cursor;
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
 use futures_util::StreamExt;
 use crate::api_client::RithmicApiClient;
-use crate::credentials::RithmicCredentials;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::errors::RithmicApiError;
 use prost::{Message as ProstMessage};
@@ -126,6 +121,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }*/
 
+#[allow(dead_code)]
 async fn handle_received_responses(
     client: Arc<RithmicApiClient>,
     reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
