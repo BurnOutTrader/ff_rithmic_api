@@ -379,13 +379,6 @@ pub async fn handle_received_responses(
 Step 4: Send messages to the desired plant over the `write half` of the plant websocket connection.
 ```rust
 async fn main() {
-    // Define the file path for credentials
-    let file_path = String::from("rithmic_credentials.toml".to_string());
-
-    // load credentials
-    let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-    let app_name = credentials.app_name.clone();
-    
     // login to the ticker plant
     let mut ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     
@@ -417,18 +410,6 @@ Step 5: The connections are maintained in the api instance, when work is done, l
 ```rust
 #[tokio::main]
 async fn main() {
-    // Define the file path for credentials
-    let file_path = String::from("rithmic_credentials.toml".to_string());
-
-    // Define credentials
-    let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-
-    // Save credentials to file
-    //credentials.save_credentials_to_file(&file_path)?;
-
-    // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials);
-
     // Test connections
     let mut ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant, 100).await?;
     assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
