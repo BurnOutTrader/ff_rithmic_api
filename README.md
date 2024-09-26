@@ -18,7 +18,8 @@ Not thoroughly tested, if you experience a locking behaviour, try applying a loc
 
 Note: If the Proto version is ever updated we will need to uncomment the build.rs code and rerun the build.
 ## Login and connect
-Step 1: Enter your api details provided by rithmic into the rithmic_credentials.toml, if the toml does not exist, then you can create new credentials and save them to a file \
+Step 1a: Enter the server urls for each Server in server.toml, if you are only using Test you will only need to enter the url for Test, just leave the others as they are, I am not allowed to share them, you must apply for dev kit.
+Step 1b: Enter your api details provided by rithmic into the rithmic_credentials.toml, if the toml does not exist, then you can create new credentials and save them to a file \
 Step 2: Load credentials and create an instance of a RithmicApiClient:
 ```rust
 #[tokio::main]
