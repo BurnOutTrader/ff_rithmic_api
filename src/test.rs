@@ -4,6 +4,8 @@ use tokio::sync::mpsc;
 use crate::rithmic_proto_objects::rti::request_account_list::UserType;
 use std::io::Cursor;
 use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 use futures_util::StreamExt;
 use crate::api_client::RithmicApiClient;
 use crate::credentials::RithmicCredentials;
@@ -115,7 +117,8 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
    // rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
 
     while let Some(_message) = receiver.recv().await {
-
+        sleep(Duration::from_secs(10));
+        break;
     }
 
     // Logout and Shutdown all connections
