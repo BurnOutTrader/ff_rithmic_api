@@ -5,6 +5,25 @@ The api is currently contains the full functionality for rithmic RProtocol api.
 
 Be aware! Tests will fail when the market is closed.
 
+You will need a servers.toml file for your API, you can use this template, you only need and address for the specific `RithmicServer`s that you intend to use.
+## Servers
+```toml
+[rithmic_servers]
+Chicago = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Sydney = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+SaoPaolo = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Colo75 = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Frankfurt = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+HongKong = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Ireland = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Mumbai = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Seoul = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+CapeTown = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Tokyo = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Singapore = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+Test = "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+```
+
 ## Complete
 This Api allows complete dynamic functionality for all Infrastructure Plants, Requests and Response types.
 All possible proto responses and request are already compiled into rust code and they should be visible in your IDE by starting to type Response or Request. \
@@ -32,10 +51,9 @@ async fn main() {
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
         password: "password".to_string(),
-        server_domain: "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
     };
     // Save credentials to file "rithmic_credentials.toml" is in the .gitignore
-    new_credentials.save_credentials_to_file("rithmic_credentials.toml").unwrap();
+    new_credentials.save_credentials_to_file(new_credentials.file_name()).unwrap();
 
     // Define the file path for credentials
     let file_path = String::from("rithmic_credentials.toml".to_string());
@@ -134,7 +152,6 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
         password: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
-        server_domain: "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
     };
     new_credentials.save_credentials_to_file(&file_path)?;
 

@@ -66,4 +66,25 @@ impl RithmicSystem {
             _ => None,
         }
     }
+
+    pub fn file_string(&self) -> String {
+        match self {
+            RithmicSystem::Rithmic01 => "rithmic_01.toml".to_string(),
+            RithmicSystem::Rithmic04Colo => "rithmic_04_colo.toml".to_string(),
+            RithmicSystem::RithmicPaperTrading => "rithmic_paper_trading.toml".to_string(),
+            RithmicSystem::TopstepTrader => "topstep_trader.toml".to_string(),
+            RithmicSystem::SpeedUp => "speedup.toml".to_string(),
+            RithmicSystem::TradeFundrr => "tradefundrr.toml".to_string(),
+            RithmicSystem::UProfitTrader => "uprofit_trader.toml".to_string(),
+            RithmicSystem::Apex => "apex.toml".to_string(),
+            RithmicSystem::MESCapital => "mes_capital.toml".to_string(),
+            RithmicSystem::TheTradingPit => "the_trading_pit.toml".to_string(),
+            RithmicSystem::FundedFuturesNetwork => "funded_futures_network.toml".to_string(),
+            RithmicSystem::Bulenox => "bulenox.toml".to_string(),
+            RithmicSystem::PropShopTrader => "propshop_trader.toml".to_string(),
+            RithmicSystem::FourPropTrader => "4prop_trader.toml".to_string(),
+            RithmicSystem::FastTrackTrading => "fasttrack_trading.toml".to_string(),
+            RithmicSystem::Test => "test.toml".to_string(),
+        }
+    }
 }

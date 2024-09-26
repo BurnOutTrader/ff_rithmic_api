@@ -37,4 +37,8 @@ impl RithmicCredentials {
 
         Ok(credentials)
     }
+
+    pub fn file_name(&self) -> String {
+        self.system_name.file_string()
+    }
 }

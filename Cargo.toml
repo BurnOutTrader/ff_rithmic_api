@@ -2,6 +2,21 @@
 name = "ff_rithmic_api"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/BurnOutTrader/ff_rithmic_api"
+keywords = ["rithmic", "rust", "crate", "api"]
+categories = ["api-bindings"]
+
+exclude = [
+    "rithmic_credentials_example.toml",  # Exclude all TOML files in this directory
+    ".gitignore",
+    "LICENSE.md",
+    "README.md",
+    ".github/",
+    "src/test.rs",
+    "build.rs",
+    "servers.toml"
+]
 
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"] }
