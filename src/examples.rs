@@ -1,6 +1,12 @@
+use std::thread::sleep;
+use crate::rithmic_proto_objects::rti::request_account_list::UserType;
+use tokio::sync::mpsc;
+use crate::servers::RithmicServer;
+use crate::credentials::RithmicCredentials;
 use futures_util::stream::SplitStream;
 use std::io::Cursor;
 use std::sync::Arc;
+use std::time::Duration;
 use futures_util::StreamExt;
 use crate::api_client::RithmicApiClient;
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
@@ -30,23 +36,23 @@ use crate::rithmic_proto_objects::rti::{
     ResponseTradeRoutes, ResponseUpdateStopBracketLevel, ResponseUpdateTargetBracketLevel, ResponseVolumeProfileMinuteBars,
     RithmicOrderNotification, SymbolMarginRate, TickBar, TimeBar, TradeRoute, TradeStatistics, UpdateEasyToBorrowList, RequestAccountList
 };
-
-
+use crate::systems::RithmicSystem;
 
 /// This Test will fail when the market is closed.
+#[allow(dead_code)]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
+    let file_path = String::from("rithmic_credentials.toml".to_string());
 
    let new_credentials = RithmicCredentials {
-        user: "{ASK_RITHMIC_FOR_CREDENTIALS}",
+        user: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
         password: "password".to_string(),
-        server_domain: "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
     };
     new_credentials.save_credentials_to_file(&file_path)?;
 
     // Define the file path for credentials
-    let file_path = String::from("rithmic_credentials.toml".to_string());
+
 
     // Define credentials
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
@@ -61,18 +67,19 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     let rithmic_api = RithmicApiClient::new(credentials, app_name, app_version, aggregated_quotes, server_domains_toml).unwrap();
     let rithmic_api_arc = Arc::new(rithmic_api);
 
+    let (sender, mut receiver) = mpsc::channel(100);
+    let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
+    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant,sender).await?;
+
     // Establish connections, sign in and receive back the websocket readers
-    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
+/*    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::TickerPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
 
     let history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::HistoryPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::HistoryPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), history_receiver, SysInfraType::HistoryPlant).await?;
-    let (sender, mut receiver) = mpsc::channel(100);
-    let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
-    assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant,sender).await?;
 
     let pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::PnlPlant).await);
@@ -83,13 +90,9 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;
 
-    // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
-    let heart_beat = RequestHeartbeat {
-        template_id: 18,
-        user_msg: vec![format!("{} Testing heartbeat", app_name)],
-        ssboe: None,
-        usecs: None,
-    };
+ */
+
+
 
     let accounts = RequestAccountList {
         template_id: 302,
