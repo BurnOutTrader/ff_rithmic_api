@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::errors::RithmicApiError;
 use toml::Value;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, Hash)]
 pub enum RithmicServer {
     Chicago,
     Sydney,
