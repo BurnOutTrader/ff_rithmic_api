@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::{Cursor};
 use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
@@ -16,6 +17,9 @@ use crate::errors::RithmicApiError;
 use prost::encoding::{decode_key, decode_varint, WireType};
 use tokio::task::JoinHandle;
 use tokio::time::{sleep_until, Instant};
+use crate::servers::{server_domains, RithmicServer};
+
+pub const TEMPLATE_VERSION: &str = "5.27";
 
 ///Server uses Big Endian format for binary data
 pub struct RithmicApiClient {
@@ -35,33 +39,43 @@ pub struct RithmicApiClient {
     /// If we have a race condition in live testing this property object may need to incorporate a lock
     last_message_time: Arc<DashMap<SysInfraType, Instant>>,
 
-    /// The system name for the associated plant
-    system_name: DashMap<SysInfraType, String>,
-
     /// Keep a map of heartbeat tasks so that we can cut the loop when we shut down a plant conenction
     heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
+
+    app_name: String,
+
+    app_version: String,
+
+    aggregated_quotes: bool,
+
+    server_domains: BTreeMap<RithmicServer, String>,
 }
 
 impl RithmicApiClient {
     pub fn new(
-        credentials: RithmicCredentials
-    ) -> Self {
-        Self {
+        credentials: RithmicCredentials,
+        app_name: String,
+        app_version: String,
+        aggregated_quotes: bool,
+        server_domains_toml: String,
+    ) -> Result<Self, RithmicApiError> {
+        let server_domains = server_domains(server_domains_toml)?;
+        Ok(Self {
             credentials,
             connected_plant: Default::default(),
             plant_writer: DashMap::with_capacity(5),
             heart_beat_intervals: DashMap::with_capacity(5),
             last_message_time: Arc::new(DashMap::with_capacity(5)),
-            system_name: DashMap::with_capacity(5),
             heartbeats: DashMap::with_capacity(5),
-        }
+            app_name,
+            app_version,
+            aggregated_quotes,
+            server_domains
+        })
     }
 
-    pub async fn get_system_name(&self, plant: SysInfraType) -> Option<String> {
-        match self.system_name.get(&plant) {
-            None => None,
-            Some(name) => Some(name.clone())
-        }
+    pub async fn get_system_name(&self) -> String {
+        self.credentials.system_name.to_string()
     }
 
     /// get the writer for the specified plant
@@ -140,55 +154,50 @@ impl RithmicApiClient {
         Err(RithmicApiError::ServerErrorDebug("No valid message received".to_string()))
     }
 
+    pub async fn get_systems(
+        &self,
+        plant: SysInfraType,
+    ) -> Result<Vec<String>, RithmicApiError> {
+        if plant as i32 > 5 {
+            return Err(RithmicApiError::ClientErrorDebug("Incorrect value for rithmic SysInfraType".to_string()))
+        }
+        let domain = match self.server_domains.get(&self.credentials.server_name) {
+            None => return Err(RithmicApiError::ServerErrorDebug(format!("No server domain found, check server.toml for: {:?}", self.credentials.server_name))),
+            Some(domain) => domain
+        };
+        // establish TCP connection to get the server details
+        let (mut stream, response) = match connect_async(domain).await {
+            Ok((stream, response)) => (stream, response),
+            Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to connect to rithmic: {}", e)))
+        };
+        println!("Rithmic connection established: {:?}", response);
+        // Rithmic System Info Request 16 From Client
+        let request = RequestRithmicSystemInfo {
+            template_id: 16,
+            user_msg: vec![format!("{} Signing In", self.app_name)],
+        };
+
+        RithmicApiClient::send_single_protobuf_message(&mut stream, &request).await?;
+        // Rithmic System Info Response 17
+        // Step 2: Read the full message based on the length
+        let message: ResponseRithmicSystemInfo = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
+        println!("{:?}", message);
+        // Now we have the system name we can do the handshake
+        Ok(message.system_name)
+    }
+
     /// Connect to the desired plant and sign in with your credentials.
-    pub async fn connect_and_login(
+    pub async fn connect_and_login (
         &self,
         plant: SysInfraType,
     ) -> Result<SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>, RithmicApiError> {
 
-        let server_name = if self.credentials.system_name == None {
-            if plant as i32 > 5 {
-                return Err(RithmicApiError::ClientErrorDebug("Incorrect value for rithmic SysInfraType".to_string()))
-            }
-            // establish TCP connection to get the server details
-            let (mut stream, response) = match connect_async(self.credentials.base_url.clone()).await {
-                Ok((stream, response)) => (stream, response),
-                Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to connect to rithmic: {}", e)))
-            };
-            println!("Rithmic connection established: {:?}", response);
-            // Rithmic System Info Request 16 From Client
-            let request = RequestRithmicSystemInfo {
-                template_id: 16,
-                user_msg: vec![format!("{} Signing In", self.credentials.app_name)],
-            };
-
-            RithmicApiClient::send_single_protobuf_message(&mut stream, &request).await?;
-            // Rithmic System Info Response 17
-            // Step 2: Read the full message based on the length
-            let message: ResponseRithmicSystemInfo = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
-            println!("{:?}", message);
-            // Now we have the system name we can do the handshake
-            let rithmic_server_name = match message.system_name.first() {
-                Some(name) => name.clone(),
-                None => {
-                    return Err(RithmicApiError::ServerErrorDebug(
-                        "No system name found in response".to_string(),
-                    ));
-                }
-            };
-            //println!("{}", rithmic_server_name);
-            stream.close(None).await.map_err(RithmicApiError::WebSocket)?;
-            Some(rithmic_server_name)
-        } else {
-            None
+        let domain = match self.server_domains.get(&self.credentials.server_name) {
+            None => return Err(RithmicApiError::ServerErrorDebug(format!("No server domain found, check server.toml for: {:?}", self.credentials.server_name))),
+            Some(domain) => domain
         };
 
-        let system_name = match server_name {
-            None => self.credentials.system_name.clone(),
-            Some(name) => Some(name)
-        };
-
-        let (mut stream, _) = match connect_async(self.credentials.base_url.clone()).await {
+        let (mut stream, _) = match connect_async(domain).await {
             Ok((stream, response)) => (stream, response),
             Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to connect to rithmic, for login message: {}", e)))
         };
@@ -197,18 +206,18 @@ impl RithmicApiClient {
         // Login Request 10 From Client
         let login_request = RequestLogin {
             template_id: 10,
-            template_version: Some(self.credentials.template_version.clone()),
+            template_version: Some(TEMPLATE_VERSION.to_string()),
             user_msg: vec![],
             user: Some(self.credentials.user.clone()),
             password: Some(self.credentials.password.clone()),
-            app_name: Some(self.credentials.app_name.clone()),
-            app_version: Some(self.credentials.app_version.clone()),
-            system_name: system_name.clone(),
+            app_name: Some(self.app_name.clone()),
+            app_version: Some(self.app_version.clone()),
+            system_name: Some(self.credentials.system_name.to_string()),
             infra_type: Some(plant as i32),
             mac_addr: vec![],
             os_version: None,
             os_platform: None,
-            aggregated_quotes: Some(self.credentials.aggregated_quotes.clone()),
+            aggregated_quotes: Some(self.aggregated_quotes.clone()),
         };
 
         RithmicApiClient::send_single_protobuf_message(&mut stream, &login_request).await?;
@@ -222,7 +231,6 @@ impl RithmicApiClient {
         let (ws_writer, ws_reader) = stream.split();
         self.connected_plant.write().await.push(plant.clone());
         self.plant_writer.insert(plant.clone(), Arc::new(Mutex::new(ws_writer)));
-        self.system_name.insert(plant.clone(), system_name.unwrap().clone());
 
         match self.start_heartbeat(plant).await {
             Ok(_) => Ok(ws_reader),
@@ -276,7 +284,7 @@ impl RithmicApiClient {
         //Logout Request 12
         let logout_request = RequestLogout {
             template_id: 12,
-            user_msg: vec![format!("{} Signing Out", self.credentials.app_name)],
+            user_msg: vec![format!("{} Signing Out", self.app_name)],
         };
         self.send_message(plant.clone(), logout_request).await?;
 
@@ -290,7 +298,6 @@ impl RithmicApiClient {
         ws_writer.send(Message::Close(None)).await.map_err(RithmicApiError::WebSocket)?;
 
         self.connected_plant.write().await.retain(|x| *x != plant);
-        self.system_name.remove(&plant);
         if let Some((_, heartbeat_task)) = self.heartbeats.remove(&plant) {
             heartbeat_task.abort();
         }

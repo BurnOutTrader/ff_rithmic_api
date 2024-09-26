@@ -40,17 +40,30 @@ use crate::rithmic_proto_objects::rti::{
 /// This Test will fail when the market is closed.
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
+
+ /*   let new_credentials = RithmicCredentials {
+        user: "{ASK_RITHMIC_FOR_CREDENTIALS}",
+        server_name: RithmicServer::Test,
+        system_name: RithmicSystem::Test,
+        password: "password".to_string(),
+        server_domain: "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+    };
+    new_credentials.save_credentials_to_file(&file_path)?;*/
+
     // Define the file path for credentials
     let file_path = String::from("rithmic_credentials.toml".to_string());
 
     // Define credentials
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-    let _app_name = credentials.app_name.clone();
+    let app_name: String = "".to_string();
+    let app_version: String = "".to_string();
+    let aggregated_quotes: bool = false;
+    let server_domains_toml: String = "servers.toml".to_string();
     // Save credentials to file
     //credentials.save_credentials_to_file(&file_path)?;
 
     // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials);
+    let rithmic_api = RithmicApiClient::new(credentials, app_name, app_version, aggregated_quotes, server_domains_toml).unwrap();
     let rithmic_api_arc = Arc::new(rithmic_api);
 
     // Establish connections, sign in and receive back the websocket readers

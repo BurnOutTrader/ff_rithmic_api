@@ -26,15 +26,7 @@ async fn main() {
     // On first run create the credentials
     let credentials = RithmicCredentials {
         user: "".to_string(),
-        system_name: "".to_string(),
         password: "".to_string(),
-        app_name: "".to_string(),
-        app_version: "1.0".to_string(),
-        aggregated_quotes: false,
-        template_version: "5.27".to_string(),
-        pem: String::from(""),
-        base_url: "".to_string(),
-        broker: "Test"
     };
     
     // Save credentials to file "rithmic_credentials.toml" is in the .gitignore
@@ -128,33 +120,49 @@ We do not need a mutable client to send messages to rithmic as the writer half o
 
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
+    // Define credentials
     // Define the file path for credentials
     let file_path = String::from("rithmic_credentials.toml".to_string());
+    
+    let new_credentials = RithmicCredentials {
+        user: "{ASK_RITHMIC_FOR_CREDENTIALS}",
+        server_name: RithmicServer::Test,
+        system_name: RithmicSystem::Test,
+        password: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
+        server_domain: "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
+    };
+    new_credentials.save_credentials_to_file(&file_path)?;
 
     // Define credentials
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-    let app_name = credentials.app_name.clone();
-    // Save credentials to file
-    //credentials.save_credentials_to_file(&file_path)?;
+    let app_name: String = "Example_App".to_string(); //use your own app name, dont use fund forge
+    let app_version: String = "0.1.0".to_string();
+    let aggregated_quotes: bool = false;
+    
+    //todo You will need to manually input the server domains into this file as you get them from rithmic conformance.
+    // The server domains for your RithmicServer variant will be loaded from the list.
+    // I am not allowed to share the list, you must pass conformance.
+    let server_domains_toml: String = "servers.toml".to_string();
 
     // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials);
-
+    let rithmic_api = RithmicApiClient::new(credentials, app_name, app_version, aggregated_quotes, server_domains_toml).unwrap();
+    let rithmic_api_arc = Arc::new(rithmic_api);
+    
     // Establish connections, sign in and receive back the websocket readers
-    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::TickerPlant).await?;
-    assert!(rithmic_api.is_connected(SysInfraType::TickerPlant).await);
+    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::TickerPlant).await);
 
-    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api.connect_and_login(SysInfraType::HistoryPlant).await?;
-    assert!(rithmic_api.is_connected(SysInfraType::HistoryPlant).await);
+    let _history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::HistoryPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::HistoryPlant).await);
 
-    let _order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::OrderPlant).await?;
-    assert!(rithmic_api.is_connected(SysInfraType::OrderPlant).await);
+    let _order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
 
-    let _pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::PnlPlant).await?;
-    assert!(rithmic_api.is_connected(SysInfraType::PnlPlant).await);
+    let _pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::PnlPlant).await);
 
-    let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api.connect_and_login(SysInfraType::RepositoryPlant).await?;
-    assert!(rithmic_api.is_connected(SysInfraType::RepositoryPlant).await);
+    let _repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
+    assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
 
 
 
@@ -167,25 +175,25 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
-    match rithmic_api.send_message(&SysInfraType::TickerPlant, heart_beat.clone()).await {
+    match rithmic_api_arc.send_message(&SysInfraType::TickerPlant, heart_beat.clone()).await {
         Ok(_) => println!("Heart beat sent"),
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
 
-    handle_received_responses(&rithmic_api, ticker_receiver, SysInfraType::TickerPlant).await?;
+    handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
     
     // on receiving messages we can manually reset the heartbeat timer. this is used when not streaming data, it will automatically update when a message is sent.
     // You can use this function to manually update on messages received.
-    rithmic_api.update_heartbeat(SysInfraType::TickerPlant);
+    rithmic_api_arc.update_heartbeat(SysInfraType::TickerPlant);
 
     /// we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
     rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap(); /// Stop any running heartbeat task
     rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap(); /// Start a heartbeat task if none started
-    
-    rithmic_api.send_message(SysInfraType::TickerPlant, heart_beat).await?;
+
+    rithmic_api_arc.send_message(SysInfraType::TickerPlant, heart_beat).await?;
 
     // Logout and Shutdown all connections
-    rithmic_api.shutdown_all().await?;
+    rithmic_api_arc.shutdown_all().await?;
 
     // or Logout and Shutdown a single connection
     //rithmic_api.shutdown_split_websocket(SysInfraType::TickerPlant).await?;
@@ -195,7 +203,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
 /// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 pub async fn handle_received_responses(
-    client: &RithmicApiClient,
+    client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     plant: SysInfraType,
 ) -> Result<(), RithmicApiError> {

@@ -2,17 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{self, Read, Write};
 use toml;
+use crate::servers::RithmicServer;
+use crate::systems::RithmicSystem;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RithmicCredentials {
     pub user: String,
-    pub system_name: Option<String>,
+    pub server_name: RithmicServer,
+    pub system_name: RithmicSystem,
     pub password: String,
-    pub app_name: String,
-    pub app_version: String,
-    pub aggregated_quotes: bool,
-    pub template_version: String,
-    pub base_url: String,
 }
 
 impl RithmicCredentials {

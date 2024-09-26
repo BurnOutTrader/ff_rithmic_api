@@ -21,5 +21,14 @@ pub enum RithmicApiError {
     ProtobufDecode(#[from] DecodeError),
 
     #[error("Disconnected error: {0}")]
-    Disconnected(String)
+    Disconnected(String),
+
+    #[error("TOML parsing error: {0}")]
+    TomlParse(#[from] toml::de::Error),
+
+    #[error("Invalid server name: {0}")]
+    InvalidServerName(String),
+
+    #[error("Invalid config: {0}")]
+    InvalidConfig(String)
 }
