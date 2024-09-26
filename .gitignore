@@ -3,3 +3,6 @@
 rithmic_credentials.toml
 src/proto
 src/rithmic_ssl_cert_auth_params.pem
+.DS_Store
+src/rithmic_proto_objects/.DS_Store
+src/.DS_Store
