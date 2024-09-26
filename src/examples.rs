@@ -32,19 +32,18 @@ use crate::rithmic_proto_objects::rti::{
 };
 
 
-/*
+
 /// This Test will fail when the market is closed.
-#[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
- /*   let new_credentials = RithmicCredentials {
+   let new_credentials = RithmicCredentials {
         user: "{ASK_RITHMIC_FOR_CREDENTIALS}",
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
         password: "password".to_string(),
         server_domain: "wss://{ASK_RITHMIC_FOR_DEV_KIT}"
     };
-    new_credentials.save_credentials_to_file(&file_path)?;*/
+    new_credentials.save_credentials_to_file(&file_path)?;
 
     // Define the file path for credentials
     let file_path = String::from("rithmic_credentials.toml".to_string());
@@ -63,34 +62,34 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     let rithmic_api_arc = Arc::new(rithmic_api);
 
     // Establish connections, sign in and receive back the websocket readers
-/*    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
+    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::TickerPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
 
     let history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::HistoryPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::HistoryPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), history_receiver, SysInfraType::HistoryPlant).await?;*/
+    handle_received_responses(rithmic_api_arc.clone(), history_receiver, SysInfraType::HistoryPlant).await?;
     let (sender, mut receiver) = mpsc::channel(100);
     let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant,sender).await?;
 
-   /* let pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
+    let pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::PnlPlant).await);
     handle_received_responses(rithmic_api_arc.clone(), pnl_receiver, SysInfraType::PnlPlant).await?;
     // The repo server is only used for data agreements
 
     let repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
     assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;*/
+    handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;
 
     // send a heartbeat request as a test message, 'RequestHeartbeat' Template number 18
-/*    let heart_beat = RequestHeartbeat {
+    let heart_beat = RequestHeartbeat {
         template_id: 18,
         user_msg: vec![format!("{} Testing heartbeat", app_name)],
         ssboe: None,
         usecs: None,
-    };*/
+    };
 
     let accounts = RequestAccountList {
         template_id: 302,
@@ -119,7 +118,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     rithmic_api_arc.shutdown_all().await?;
 
     Ok(())
-}*/
+}
 
 #[allow(dead_code)]
 async fn handle_received_responses(
