@@ -1,4 +1,3 @@
-
 use futures_util::stream::SplitStream;
 use tokio::sync::mpsc;
 use crate::rithmic_proto_objects::rti::request_account_list::UserType;
@@ -38,7 +37,7 @@ use crate::rithmic_proto_objects::rti::{
 };
 
 
-
+/*
 /// This Test will fail when the market is closed.
 #[tokio::test]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
@@ -125,7 +124,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     rithmic_api_arc.shutdown_all().await?;
 
     Ok(())
-}
+}*/
 
 async fn handle_received_responses(
     client: Arc<RithmicApiClient>,
