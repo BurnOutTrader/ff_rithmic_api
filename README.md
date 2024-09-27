@@ -75,6 +75,9 @@ async fn main() {
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
         password: "password".to_string(),
+        fcm_id: Some("XXXFIRM".to_string()),
+        ib_id: Some("XXXFIRM".to_string()),
+        user_type: Some(UserType::Trader.into()),
     };
     new_credentials.save_credentials_to_file(&file_path)?;
 
@@ -202,12 +205,15 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     // Define credentials
     // Define the file path for credentials
     let file_path = String::from("rithmic_credentials.toml".to_string());
-    
+
     let new_credentials = RithmicCredentials {
-        user: "{ASK_RITHMIC_FOR_CREDENTIALS}",
+        user: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
-        password: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
+        password: "password".to_string(),
+        fcm_id: Some("XXXFIRM".to_string()),
+        ib_id: Some("XXXFIRM".to_string()),
+        user_type: Some(UserType::Trader.into()),
     };
     new_credentials.save_credentials_to_file(&file_path)?;
 

@@ -16,6 +16,9 @@ pub struct RithmicCredentials {
     pub server_name: RithmicServer,
     pub system_name: RithmicSystem,
     pub password: String,
+    pub fcm_id: Option<String>,
+    pub ib_id: Option<String>,
+    pub user_type: Option<i32>,
 }
 
 #[allow(dead_code)]

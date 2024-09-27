@@ -48,6 +48,9 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
         password: "password".to_string(),
+        fcm_id: Some("XXXFIRM".to_string()),
+        ib_id: Some("XXXFIRM".to_string()),
+        user_type: Some(UserType::Trader.into()),
     };
     new_credentials.save_credentials_to_file(&file_path)?;
 
