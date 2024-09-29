@@ -241,7 +241,7 @@ checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 
 [[package]]
 name = "ff_rithmic_api"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "dashmap",
  "futures-util",
