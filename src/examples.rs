@@ -53,7 +53,8 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         fcm_id: Some("XXXFIRM".to_string()),
         ib_id: Some("XXXFIRM".to_string()),
         user_type: Some(UserType::Trader.into()),
-    };
+       subscribe_data: true,
+   };
     new_credentials.save_credentials_to_file(&file_path)?;
 
     // Define the file path for credentials

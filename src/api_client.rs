@@ -355,8 +355,8 @@ impl RithmicApiClient {
     ) -> Result<(), RithmicApiError> {
         // Interval for heartbeat checks
         let heartbeat_interval = match self.heart_beat_intervals.get(&plant) {
-            None => return Err(RithmicApiError::ClientErrorDebug("No heartbeat interval recorded at log in, please logout and login again".to_string())),
-            Some(hb) => hb
+            None => Duration::from_secs(60),
+            Some(hb) => hb.value().clone()
         }.clone();
 
 

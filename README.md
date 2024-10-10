@@ -58,6 +58,7 @@ async fn main() {
         fcm_id: Some("XXXFIRM".to_string()),
         ib_id: Some("XXXFIRM".to_string()),
         user_type: Some(UserType::Trader.into()),
+        subscribe_data: true
     };
     // Save credentials to file "rithmic_credentials.toml" is in the .gitignore
     new_credentials.save_credentials_to_file(new_credentials.file_name()).unwrap();
@@ -221,6 +222,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         fcm_id: Some("XXXFIRM".to_string()),
         ib_id: Some("XXXFIRM".to_string()),
         user_type: Some(UserType::Trader.into()),
+        subscribe_data: true
     };
     new_credentials.save_credentials_to_file(&file_path)?;
 

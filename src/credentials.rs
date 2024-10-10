@@ -21,6 +21,7 @@ pub struct RithmicCredentials {
     pub fcm_id: Option<String>,
     pub ib_id: Option<String>,
     pub user_type: Option<i32>,
+    pub subscribe_data: bool,
 }
 
 #[allow(dead_code)]
