@@ -47,7 +47,9 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         user: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
-        password: "password".to_string(),
+       app_name: "Example".to_string(),
+       app_version: "1.0".to_string(),
+       password: "password".to_string(),
         fcm_id: Some("XXXFIRM".to_string()),
         ib_id: Some("XXXFIRM".to_string()),
         user_type: Some(UserType::Trader.into()),
@@ -59,15 +61,13 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
 
     // Define credentials
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-    let app_name: String = "".to_string();
-    let app_version: String = "".to_string();
     let aggregated_quotes: bool = false;
     let server_domains_toml: String = "servers.toml".to_string();
     // Save credentials to file
     //credentials.save_credentials_to_file(&file_path)?;
 
     // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials, app_name, app_version, aggregated_quotes, server_domains_toml).unwrap();
+    let rithmic_api = RithmicApiClient::new(credentials, aggregated_quotes, server_domains_toml).unwrap();
     let rithmic_api_arc = Arc::new(rithmic_api);
 
     let (sender, mut receiver) = mpsc::channel(100);

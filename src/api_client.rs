@@ -42,10 +42,6 @@ pub struct RithmicApiClient {
     /// Keep a map of heartbeat tasks so that we can cut the loop when we shut down a plant conenction
     heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
 
-    app_name: String,
-
-    app_version: String,
-
     aggregated_quotes: bool,
 
     server_domains: BTreeMap<RithmicServer, String>,
@@ -54,8 +50,6 @@ pub struct RithmicApiClient {
 impl RithmicApiClient {
     pub fn new(
         credentials: RithmicCredentials,
-        app_name: String,
-        app_version: String,
         aggregated_quotes: bool,
         server_domains_toml: String,
     ) -> Result<Self, RithmicApiError> {
@@ -67,8 +61,6 @@ impl RithmicApiClient {
             heart_beat_intervals: DashMap::with_capacity(5),
             last_message_time: Arc::new(DashMap::with_capacity(5)),
             heartbeats: DashMap::with_capacity(5),
-            app_name,
-            app_version,
             aggregated_quotes,
             server_domains
         })
@@ -174,7 +166,7 @@ impl RithmicApiClient {
         // Rithmic System Info Request 16 From Client
         let request = RequestRithmicSystemInfo {
             template_id: 16,
-            user_msg: vec![format!("{} Signing In", self.app_name)],
+            user_msg: vec![format!("{} Signing In", self.credentials.app_name)],
         };
 
         RithmicApiClient::send_single_protobuf_message(&mut stream, &request).await?;
@@ -210,8 +202,8 @@ impl RithmicApiClient {
             user_msg: vec![],
             user: Some(self.credentials.user.clone()),
             password: Some(self.credentials.password.clone()),
-            app_name: Some(self.app_name.clone()),
-            app_version: Some(self.app_version.clone()),
+            app_name: Some(self.credentials.app_name.clone()),
+            app_version: Some(self.credentials.app_version.clone()),
             system_name: Some(self.credentials.system_name.to_string()),
             infra_type: Some(plant as i32),
             mac_addr: vec![],
@@ -284,7 +276,7 @@ impl RithmicApiClient {
         //Logout Request 12
         let logout_request = RequestLogout {
             template_id: 12,
-            user_msg: vec![format!("{} Signing Out", self.app_name)],
+            user_msg: vec![format!("{} Signing Out", self.credentials.app_name)],
         };
         self.send_message(plant.clone(), logout_request).await?;
 

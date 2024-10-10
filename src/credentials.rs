@@ -15,6 +15,8 @@ pub struct RithmicCredentials {
     pub user: String,
     pub server_name: RithmicServer,
     pub system_name: RithmicSystem,
+    pub app_name: String,
+    pub app_version: String,
     pub password: String,
     pub fcm_id: Option<String>,
     pub ib_id: Option<String>,

@@ -49,10 +49,15 @@ Step 2: Load credentials and create an instance of a RithmicApiClient:
 async fn main() {
     // On first run create the credentials
     let new_credentials = RithmicCredentials {
-        user: "{ASK_RITHMIC_FOR_CREDENTIALS}",
+        user: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
+        app_name: "Example".to_string(),
+        app_version: "1.0".to_string(),
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
         password: "password".to_string(),
+        fcm_id: Some("XXXFIRM".to_string()),
+        ib_id: Some("XXXFIRM".to_string()),
+        user_type: Some(UserType::Trader.into()),
     };
     // Save credentials to file "rithmic_credentials.toml" is in the .gitignore
     new_credentials.save_credentials_to_file(new_credentials.file_name()).unwrap();
@@ -74,6 +79,8 @@ async fn main() {
         user: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
+        app_name: "Example".to_string(),
+        app_version: "1.0".to_string(),
         password: "password".to_string(),
         fcm_id: Some("XXXFIRM".to_string()),
         ib_id: Some("XXXFIRM".to_string()),
@@ -94,7 +101,7 @@ async fn main() {
     //credentials.save_credentials_to_file(&file_path)?;
 
     // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials, app_name, app_version, aggregated_quotes, server_domains_toml).unwrap();
+    let rithmic_api = RithmicApiClient::new(credentials, aggregated_quotes, server_domains_toml).unwrap();
     let rithmic_api_arc = Arc::new(rithmic_api);
 
     let (sender, mut receiver) = mpsc::channel(100);
@@ -229,7 +236,7 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
     let server_domains_toml: String = "servers.toml".to_string();
 
     // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials, app_name, app_version, aggregated_quotes, server_domains_toml).unwrap();
+    let rithmic_api = RithmicApiClient::new(credentials, aggregated_quotes, server_domains_toml).unwrap();
     let rithmic_api_arc = Arc::new(rithmic_api);
     
     // Establish connections, sign in and receive back the websocket readers
