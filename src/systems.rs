@@ -110,4 +110,26 @@ impl RithmicSystem {
             RithmicSystem::Test => "test.toml".to_string(),
         }
     }
+
+    pub fn from_file_string(file_name: &str) -> Option<Self> {
+        match file_name {
+            "rithmic_01.toml" => Some(RithmicSystem::Rithmic01),
+            "rithmic_04_colo.toml" => Some(RithmicSystem::Rithmic04Colo),
+            "rithmic_paper_trading.toml" => Some(RithmicSystem::RithmicPaperTrading),
+            "topstep_trader.toml" => Some(RithmicSystem::TopstepTrader),
+            "speedup.toml" => Some(RithmicSystem::SpeedUp),
+            "tradefundrr.toml" => Some(RithmicSystem::TradeFundrr),
+            "uprofit_trader.toml" => Some(RithmicSystem::UProfitTrader),
+            "apex.toml" => Some(RithmicSystem::Apex),
+            "mes_capital.toml" => Some(RithmicSystem::MESCapital),
+            "the_trading_pit.toml" => Some(RithmicSystem::TheTradingPit),
+            "funded_futures_network.toml" => Some(RithmicSystem::FundedFuturesNetwork),
+            "bulenox.toml" => Some(RithmicSystem::Bulenox),
+            "propshop_trader.toml" => Some(RithmicSystem::PropShopTrader),
+            "4prop_trader.toml" => Some(RithmicSystem::FourPropTrader),
+            "fasttrack_trading.toml" => Some(RithmicSystem::FastTrackTrading),
+            "test.toml" => Some(RithmicSystem::Test),
+            _ => None,
+        }
+    }
 }
