@@ -42,15 +42,12 @@ pub struct RithmicApiClient {
     /// Keep a map of heartbeat tasks so that we can cut the loop when we shut down a plant conenction
     heartbeats: DashMap<SysInfraType, JoinHandle<()>>,
 
-    aggregated_quotes: bool,
-
     server_domains: BTreeMap<RithmicServer, String>,
 }
 
 impl RithmicApiClient {
     pub fn new(
         credentials: RithmicCredentials,
-        aggregated_quotes: bool,
         server_domains_toml: String,
     ) -> Result<Self, RithmicApiError> {
         let server_domains = server_domains(server_domains_toml)?;
@@ -61,7 +58,6 @@ impl RithmicApiClient {
             heart_beat_intervals: DashMap::with_capacity(5),
             last_message_time: Arc::new(DashMap::with_capacity(5)),
             heartbeats: DashMap::with_capacity(5),
-            aggregated_quotes,
             server_domains
         })
     }
@@ -191,7 +187,7 @@ impl RithmicApiClient {
 
         let (mut stream, _) = match connect_async(domain).await {
             Ok((stream, response)) => (stream, response),
-            Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to connect to rithmic, for login message: {}", e)))
+            Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to connect to rithmic, for login: {}", e)))
         };
 
         // After handshake, we can send confidential data
@@ -209,13 +205,19 @@ impl RithmicApiClient {
             mac_addr: vec![],
             os_version: None,
             os_platform: None,
-            aggregated_quotes: Some(self.aggregated_quotes.clone()),
+            aggregated_quotes: Some(self.credentials.aggregated_quotes),
         };
 
         RithmicApiClient::send_single_protobuf_message(&mut stream, &login_request).await?;
         self.last_message_time.insert(plant.clone(), Instant::now());
         // Login Response 11 From Server
         let response: ResponseLogin = RithmicApiClient::read_single_protobuf_message(&mut stream).await?;
+        if response.rp_code.is_empty() {
+            eprintln!("{:?}",response);
+        }
+        if response.rp_code[0] != "0".to_string() {
+            eprintln!("{:?}",response);
+        }
         if let Some(heartbeat_interval) = response.heartbeat_interval {
             self.heart_beat_intervals.insert( plant.clone(), Duration::from_secs(heartbeat_interval as u64));
         }
@@ -358,7 +360,6 @@ impl RithmicApiClient {
             None => Duration::from_secs(60),
             Some(hb) => hb.value().clone()
         }.clone();
-
 
         let last_message = self.last_message_time.clone();
         let writer = match self.plant_writer.get(&plant) {

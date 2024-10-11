@@ -1,7 +1,4 @@
-use std::thread::sleep;
 use crate::rithmic_proto_objects::rti::request_account_list::UserType;
-use tokio::sync::mpsc;
-use crate::servers::RithmicServer;
 use crate::credentials::RithmicCredentials;
 use futures_util::stream::SplitStream;
 use std::io::Cursor;
@@ -13,7 +10,7 @@ use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::errors::RithmicApiError;
 use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
-use tokio::sync::mpsc::Sender;
+use tokio::time::sleep;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::Message;
 #[allow(unused_imports)]
@@ -36,14 +33,13 @@ use crate::rithmic_proto_objects::rti::{
     ResponseTradeRoutes, ResponseUpdateStopBracketLevel, ResponseUpdateTargetBracketLevel, ResponseVolumeProfileMinuteBars,
     RithmicOrderNotification, SymbolMarginRate, TickBar, TimeBar, TradeRoute, TradeStatistics, UpdateEasyToBorrowList, RequestAccountList
 };
-use crate::systems::RithmicSystem;
 
 /// This Test will fail when the market is closed.
 #[allow(dead_code)]
 async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = String::from("rithmic_credentials.toml".to_string());
+    let file_path = String::from("rithmic_credentials_example.toml".to_string());
 
-   let new_credentials = RithmicCredentials {
+ /*  let new_credentials = RithmicCredentials {
         user: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
         server_name: RithmicServer::Test,
         system_name: RithmicSystem::Test,
@@ -55,26 +51,24 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         user_type: Some(UserType::Trader.into()),
        subscribe_data: true,
    };
-    new_credentials.save_credentials_to_file(&file_path)?;
+    new_credentials.save_credentials_to_file(&file_path)?;*/
 
     // Define the file path for credentials
 
 
     // Define credentials
     let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-    let aggregated_quotes: bool = false;
     let server_domains_toml: String = "servers.toml".to_string();
     // Save credentials to file
     //credentials.save_credentials_to_file(&file_path)?;
 
     // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials, aggregated_quotes, server_domains_toml).unwrap();
+    let rithmic_api = RithmicApiClient::new(credentials, server_domains_toml).unwrap();
     let rithmic_api_arc = Arc::new(rithmic_api);
 
-    let (sender, mut receiver) = mpsc::channel(100);
-    let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await?;
+    let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await.unwrap();
     assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant,sender).await?;
+    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant).await.unwrap();
 
     // Establish connections, sign in and receive back the websocket readers
 /*    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
@@ -112,14 +106,10 @@ async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => eprintln!("Heartbeat send failed: {}", e)
     }
 
+    sleep(Duration::from_secs(120)).await;
     // we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
     //rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
    // rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
-
-    while let Some(_message) = receiver.recv().await {
-        sleep(Duration::from_secs(10));
-        break;
-    }
 
     // Logout and Shutdown all connections
     rithmic_api_arc.shutdown_all().await?;
@@ -132,11 +122,10 @@ async fn handle_received_responses(
     client: Arc<RithmicApiClient>,
     reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     plant: SysInfraType,
-    sender: Sender<String>
 ) -> Result<(), RithmicApiError> {
     match plant {
         SysInfraType::TickerPlant => handle_responses_from_ticker_plant(client, reader).await,
-        SysInfraType::OrderPlant => handle_responses_from_order_plant(client, reader, sender).await,
+        SysInfraType::OrderPlant => handle_responses_from_order_plant(client, reader).await,
         SysInfraType::HistoryPlant => handle_responses_from_history_plant(client, reader).await,
         SysInfraType::PnlPlant => handle_responses_from_pnl_plant(client, reader).await,
         SysInfraType::RepositoryPlant => handle_responses_from_repo_plant(client, reader).await,
@@ -439,7 +428,6 @@ async fn handle_responses_from_ticker_plant(
 async fn handle_responses_from_order_plant(
     client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    sender: Sender<String>
 ) -> Result<(), RithmicApiError> {
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::OrderPlant;
@@ -456,7 +444,6 @@ async fn handle_responses_from_order_plant(
                         Message::Binary(bytes) => {
                             // spawn a new task so that we can handle next message faster.
                             let client = client.clone();
-                            let sender = sender.clone();
                             tokio::task::spawn(async move {
                                 //messages will be forwarded here
                                 let mut cursor = Cursor::new(bytes);
@@ -516,9 +503,7 @@ async fn handle_responses_from_order_plant(
                                             if let Ok(msg) = ResponseAccountList::decode(&message_buf[..]) {
                                                 // Account List Response
                                                 // From Server
-                                                let string = format!("Account List Response (Template ID: 303) from Server: {:?}", msg);
                                                 println!("Account List Response (Template ID: 303) from Server: {:?}", msg);
-                                                let _ = sender.send(string).await;
                                             }
                                         },
                                         305 => {

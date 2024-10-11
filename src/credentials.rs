@@ -22,6 +22,7 @@ pub struct RithmicCredentials {
     pub ib_id: Option<String>,
     pub user_type: Option<i32>,
     pub subscribe_data: bool,
+    pub aggregated_quotes: bool
 }
 
 #[allow(dead_code)]
