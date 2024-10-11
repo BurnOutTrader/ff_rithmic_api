@@ -58,7 +58,8 @@ async fn main() {
         fcm_id: Some("XXXFIRM".to_string()),
         ib_id: Some("XXXFIRM".to_string()),
         user_type: Some(UserType::Trader.into()),
-        subscribe_data: true
+        subscribe_data: true, 
+        aggregated_quotes: false //for some reason using true does not parse correctly on the server side, I don't know what causes this
     };
     // Save credentials to file "rithmic_credentials.toml" is in the .gitignore
     new_credentials.save_credentials_to_file(new_credentials.file_name()).unwrap();

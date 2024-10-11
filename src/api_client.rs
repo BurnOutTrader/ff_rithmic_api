@@ -190,6 +190,11 @@ impl RithmicApiClient {
             Err(e) => return Err(RithmicApiError::ServerErrorDebug(format!("Failed to connect to rithmic, for login: {}", e)))
         };
 
+        let aggregated_quotes = match self.credentials.aggregated_quotes {
+            true => Some(true),
+            false => Some(false)
+        };
+
         // After handshake, we can send confidential data
         // Login Request 10 From Client
         let login_request = RequestLogin {
@@ -205,7 +210,7 @@ impl RithmicApiClient {
             mac_addr: vec![],
             os_version: None,
             os_platform: None,
-            aggregated_quotes: Some(self.credentials.aggregated_quotes),
+            aggregated_quotes,
         };
 
         RithmicApiClient::send_single_protobuf_message(&mut stream, &login_request).await?;
