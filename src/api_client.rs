@@ -1,5 +1,6 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap};
 use std::io::{Cursor};
+use dashmap::DashMap;
 use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::protocol::Message;
@@ -21,6 +22,8 @@ pub struct RithmicApiClient {
     credentials: RithmicCredentials,
 
     server_domains: BTreeMap<RithmicServer, String>,
+
+    pub heartbeat_interval_seconds: DashMap<SysInfraType, u64>
 }
 
 impl RithmicApiClient {
@@ -31,7 +34,8 @@ impl RithmicApiClient {
         let server_domains = server_domains(server_domains_toml)?;
         Ok(Self {
             credentials,
-            server_domains
+            server_domains,
+            heartbeat_interval_seconds: DashMap::with_capacity(5),
         })
     }
 
@@ -168,6 +172,9 @@ impl RithmicApiClient {
             eprintln!("{:?}",response);
         }
 
+        if let Some(handshake_duration) = response.heartbeat_interval {
+            self.heartbeat_interval_seconds.insert(plant, handshake_duration as u64);
+        }
 
         Ok(stream)
     }

@@ -1,6 +1,6 @@
 [package]
 name = "ff_rithmic_api"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 license = "MIT"
 authors = ["Kevin Monaghan <BurnOutTrader@Outlook.com>"]
@@ -32,3 +32,4 @@ thiserror = "1.0.63"
 tungstenite = "0.23.0"
 tokio-tungstenite = { version = "0.23.1", features = ["stream", "native-tls"] }
 rkyv = { version =  "0.7.45", features = ["std", "alloc", "validation"] }
+dashmap = "6.1.0"
