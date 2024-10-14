@@ -1,16 +1,12 @@
-use crate::rithmic_proto_objects::rti::request_account_list::UserType;
-use crate::credentials::RithmicCredentials;
 use futures_util::stream::SplitStream;
 use std::io::Cursor;
 use std::sync::Arc;
-use std::time::Duration;
 use futures_util::StreamExt;
-use crate::api_client::RithmicApiClient;
+use crate::api_client::{extract_template_id, RithmicApiClient};
 use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::errors::RithmicApiError;
 use prost::{Message as ProstMessage};
 use tokio::net::TcpStream;
-use tokio::time::sleep;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::Message;
 #[allow(unused_imports)]
@@ -34,89 +30,6 @@ use crate::rithmic_proto_objects::rti::{
     RithmicOrderNotification, SymbolMarginRate, TickBar, TimeBar, TradeRoute, TradeStatistics, UpdateEasyToBorrowList, RequestAccountList
 };
 
-/// This Test will fail when the market is closed.
-#[allow(dead_code)]
-async fn test_rithmic_connection() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = String::from("rithmic_credentials_example.toml".to_string());
-
- /*  let new_credentials = RithmicCredentials {
-        user: "{ASK_RITHMIC_FOR_CREDENTIALS}".to_string(),
-        server_name: RithmicServer::Test,
-        system_name: RithmicSystem::Test,
-       app_name: "Example".to_string(),
-       app_version: "1.0".to_string(),
-       password: "password".to_string(),
-        fcm_id: Some("XXXFIRM".to_string()),
-        ib_id: Some("XXXFIRM".to_string()),
-        user_type: Some(UserType::Trader.into()),
-       subscribe_data: true,
-   };
-    new_credentials.save_credentials_to_file(&file_path)?;*/
-
-    // Define the file path for credentials
-
-
-    // Define credentials
-    let credentials = RithmicCredentials::load_credentials_from_file(&file_path).unwrap();
-    let server_domains_toml: String = "servers.toml".to_string();
-    // Save credentials to file
-    //credentials.save_credentials_to_file(&file_path)?;
-
-    // Create a new RithmicApiClient instance
-    let rithmic_api = RithmicApiClient::new(credentials, server_domains_toml).unwrap();
-    let rithmic_api_arc = Arc::new(rithmic_api);
-
-    let order_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::OrderPlant).await.unwrap();
-    assert!(rithmic_api_arc.is_connected(SysInfraType::OrderPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), order_receiver, SysInfraType::OrderPlant).await.unwrap();
-
-    // Establish connections, sign in and receive back the websocket readers
-/*    let ticker_receiver: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::TickerPlant).await?;
-    assert!(rithmic_api_arc.is_connected(SysInfraType::TickerPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), ticker_receiver, SysInfraType::TickerPlant).await?;
-
-    let history_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> = rithmic_api_arc.connect_and_login(SysInfraType::HistoryPlant).await?;
-    assert!(rithmic_api_arc.is_connected(SysInfraType::HistoryPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), history_receiver, SysInfraType::HistoryPlant).await?;
-
-    let pnl_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::PnlPlant).await?;
-    assert!(rithmic_api_arc.is_connected(SysInfraType::PnlPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), pnl_receiver, SysInfraType::PnlPlant).await?;
-    // The repo server is only used for data agreements
-
-    let repo_receiver:  SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>> =rithmic_api_arc.connect_and_login(SysInfraType::RepositoryPlant).await?;
-    assert!(rithmic_api_arc.is_connected(SysInfraType::RepositoryPlant).await);
-    handle_received_responses(rithmic_api_arc.clone(), repo_receiver, SysInfraType::RepositoryPlant).await?;
-
- */
-
-
-
-    let accounts = RequestAccountList {
-        template_id: 302,
-        user_msg: vec![],
-        fcm_id: None,
-        ib_id: None,
-        user_type: Some(UserType::Trader.into())
-    };
-
-    // We can send messages with only a reference to the client, so we can wrap our client in Arc or share it between threads and still utilise all associated functions.
-    match rithmic_api_arc.send_message(SysInfraType::OrderPlant, accounts.clone()).await {
-        Ok(_) => println!("request sent"),
-        Err(e) => eprintln!("Heartbeat send failed: {}", e)
-    }
-
-    sleep(Duration::from_secs(120)).await;
-    // we can start or stop the async heartbeat task by updating our requirements, in a streaming situation heartbeat is not an api requirement.
-    //rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, false).await.unwrap();
-   // rithmic_api_arc.switch_heartbeat_required(SysInfraType::TickerPlant, true).await.unwrap();
-
-    // Logout and Shutdown all connections
-    rithmic_api_arc.shutdown_all().await?;
-
-    Ok(())
-}
-
 #[allow(dead_code)]
 async fn handle_received_responses(
     client: Arc<RithmicApiClient>,
@@ -125,7 +38,7 @@ async fn handle_received_responses(
 ) -> Result<(), RithmicApiError> {
     match plant {
         SysInfraType::TickerPlant => handle_responses_from_ticker_plant(client, reader).await,
-        SysInfraType::OrderPlant => handle_responses_from_order_plant(client, reader).await,
+        SysInfraType::OrderPlant => handle_responses_from_order_plant(reader).await,
         SysInfraType::HistoryPlant => handle_responses_from_history_plant(client, reader).await,
         SysInfraType::PnlPlant => handle_responses_from_pnl_plant(client, reader).await,
         SysInfraType::RepositoryPlant => handle_responses_from_repo_plant(client, reader).await,
@@ -135,14 +48,13 @@ async fn handle_received_responses(
 #[allow(dead_code)]
 /// we use extract_template_id() to get the template id using the field_number 154467 without casting to any concrete type, then we map to the concrete type and handle that message.
 async fn handle_responses_from_ticker_plant(
-    client: Arc<RithmicApiClient>,
+    _client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::TickerPlant;
         while let Some(message) = reader.next().await {
             //println!("Message received: {:?}", message);
-            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     match message {
@@ -152,7 +64,6 @@ async fn handle_responses_from_ticker_plant(
                         }
                         Message::Binary(bytes) => {
                             // spawn a new task so that we can handle next message faster.
-                            let client = client.clone();
                             tokio::task::spawn(async move {
                                 //messages will be forwarded here
                                 let mut cursor = Cursor::new(bytes);
@@ -169,7 +80,7 @@ async fn handle_responses_from_ticker_plant(
                                     Ok(_) => {}
                                     Err(e) => eprintln!("Failed to read_extract message: {}", e)
                                 }
-                                if let Some(template_id) = client.extract_template_id(&message_buf) {
+                                if let Some(template_id) = extract_template_id(&message_buf) {
                                     println!("Extracted template_id: {}", template_id);
                                     // Now you can use the template_id to determine which type to decode into the concrete types
                                     match template_id {
@@ -426,14 +337,12 @@ async fn handle_responses_from_ticker_plant(
 }
 #[allow(dead_code)]
 async fn handle_responses_from_order_plant(
-    client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::OrderPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
-            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     match message {
@@ -443,7 +352,6 @@ async fn handle_responses_from_order_plant(
                         }
                         Message::Binary(bytes) => {
                             // spawn a new task so that we can handle next message faster.
-                            let client = client.clone();
                             tokio::task::spawn(async move {
                                 //messages will be forwarded here
                                 let mut cursor = Cursor::new(bytes);
@@ -460,7 +368,7 @@ async fn handle_responses_from_order_plant(
                                     Ok(_) => {}
                                     Err(e) => eprintln!("Failed to read_extract message: {}", e)
                                 }
-                                if let Some(template_id) = client.extract_template_id(&message_buf) {
+                                if let Some(template_id) = extract_template_id(&message_buf) {
                                     println!("Extracted template_id: {}", template_id);
                                     // Now you can use the template_id to determine which type to decode into the concrete types
                                     match template_id {
@@ -788,14 +696,13 @@ async fn handle_responses_from_order_plant(
 
 #[allow(dead_code)]
 async fn handle_responses_from_history_plant(
-    client: Arc<RithmicApiClient>,
+    _client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::HistoryPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
-            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
@@ -805,7 +712,6 @@ async fn handle_responses_from_history_plant(
                         }
                         Message::Binary(bytes) => {
                             // spawn a new task so that we can handle next message faster.
-                            let client = client.clone();
                             tokio::task::spawn(async move {
                                 //messages will be forwarded here
                                 let mut cursor = Cursor::new(bytes);
@@ -822,7 +728,7 @@ async fn handle_responses_from_history_plant(
                                     Ok(_) => {}
                                     Err(e) => eprintln!("Failed to read_extract message: {}", e)
                                 }
-                                if let Some(template_id) = client.extract_template_id(&message_buf) {
+                                if let Some(template_id) = extract_template_id(&message_buf) {
                                     println!("Extracted template_id: {}", template_id);
                                     // Now you can use the template_id to determine which type to decode into the concrete types
                                     match template_id {
@@ -963,14 +869,13 @@ async fn handle_responses_from_history_plant(
 
 #[allow(dead_code)]
 async fn handle_responses_from_pnl_plant(
-    client: Arc<RithmicApiClient>,
+    _client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::PnlPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
-            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
@@ -980,7 +885,6 @@ async fn handle_responses_from_pnl_plant(
                         }
                         Message::Binary(bytes) => {
                             // spawn a new task so that we can handle next message faster.
-                            let client = client.clone();
                             tokio::task::spawn(async move {
                                 //messages will be forwarded here
                                 let mut cursor = Cursor::new(bytes);
@@ -997,7 +901,7 @@ async fn handle_responses_from_pnl_plant(
                                     Ok(_) => {}
                                     Err(e) => eprintln!("Failed to read_extract message: {}", e)
                                 }
-                                if let Some(template_id) = client.extract_template_id(&message_buf) {
+                                if let Some(template_id) = extract_template_id(&message_buf) {
                                     println!("Extracted template_id: {}", template_id);
                                     // Now you can use the template_id to determine which type to decode into the concrete types
                                     match template_id {
@@ -1102,14 +1006,13 @@ async fn handle_responses_from_pnl_plant(
 
 #[allow(dead_code)]
 async fn handle_responses_from_repo_plant(
-    client: Arc<RithmicApiClient>,
+    _client: Arc<RithmicApiClient>,
     mut reader: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 ) -> Result<(), RithmicApiError> {
     tokio::task::spawn(async move {
         const PLANT: SysInfraType = SysInfraType::RepositoryPlant;
         while let Some(message) = reader.next().await {
             println!("Message received: {:?}", message);
-            client.update_heartbeat(PLANT);
             match message {
                 Ok(message) => {
                     // Tungstenite messages, if you use ProstMessage here you will get a trait related compile time error
@@ -1119,7 +1022,6 @@ async fn handle_responses_from_repo_plant(
                         }
                         Message::Binary(bytes) => {
                             // spawn a new task so that we can handle next message faster.
-                            let client = client.clone();
                             tokio::task::spawn(async move {
                                 //messages will be forwarded here
                                 let mut cursor = Cursor::new(bytes);
@@ -1136,7 +1038,7 @@ async fn handle_responses_from_repo_plant(
                                     Ok(_) => {}
                                     Err(e) => eprintln!("Failed to read_extract message: {}", e)
                                 }
-                                if let Some(template_id) = client.extract_template_id(&message_buf) {
+                                if let Some(template_id) = extract_template_id(&message_buf) {
                                     println!("Extracted template_id: {}", template_id);
                                     // Now you can use the template_id to determine which type to decode into the concrete types
                                     match template_id {

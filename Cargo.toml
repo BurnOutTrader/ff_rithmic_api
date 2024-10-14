@@ -1,6 +1,6 @@
 [package]
 name = "ff_rithmic_api"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 license = "MIT"
 authors = ["Kevin Monaghan <BurnOutTrader@Outlook.com>"]
@@ -23,7 +23,7 @@ exclude = [
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"] }
 toml = "0.8.19"
-dashmap ="6.1.0"
+strum_macros = "0.26.4"
 prost ="0.13.3"
 prost-build = "0.13.2"
 futures-util = "0.3.30"
@@ -31,5 +31,4 @@ tokio =  { version = "1.40.0", features = ["full"] }
 thiserror = "1.0.63"
 tungstenite = "0.23.0"
 tokio-tungstenite = { version = "0.23.1", features = ["stream", "native-tls"] }
-rkyv = { version =  "0.7.44", features = ["std", "alloc", "validation"] }
-strum_macros = "0.26.4"
+rkyv = { version =  "0.7.45", features = ["std", "alloc", "validation"] }
