@@ -12,6 +12,7 @@ use crate::rithmic_proto_objects::rti::request_login::SysInfraType;
 use crate::rithmic_proto_objects::rti::{RequestLogin, RequestLogout, RequestRithmicSystemInfo, ResponseLogin, ResponseRithmicSystemInfo};
 use crate::errors::RithmicApiError;
 use prost::encoding::{decode_key, decode_varint, WireType};
+use tokio::sync::RwLock;
 use crate::servers::{server_domains, RithmicServer};
 
 pub const TEMPLATE_VERSION: &str = "5.27";
@@ -20,6 +21,10 @@ pub const TEMPLATE_VERSION: &str = "5.27";
 pub struct RithmicApiClient {
     /// Credentials used for this instance of the api. we can have multiple instances for different brokers.
     credentials: RithmicCredentials,
+
+    pub fcm_id:RwLock<Option<String>>,
+
+    pub ib_id:RwLock<Option<String>>,
 
     server_domains: BTreeMap<RithmicServer, String>,
 
@@ -34,6 +39,8 @@ impl RithmicApiClient {
         let server_domains = server_domains(server_domains_toml)?;
         Ok(Self {
             credentials,
+            fcm_id: RwLock::new(None),
+            ib_id: RwLock::new(None),
             server_domains,
             heartbeat_interval_seconds: DashMap::with_capacity(5),
         })
@@ -170,6 +177,16 @@ impl RithmicApiClient {
         }
         if response.rp_code[0] != "0".to_string() {
             eprintln!("{:?}",response);
+        }
+
+        match response.fcm_id {
+            Some(fcm_id) => *self.fcm_id.write().await = Some(fcm_id),
+            None => {}
+        }
+
+        match response.ib_id {
+            Some(fcm_id) => *self.ib_id.write().await = Some(fcm_id),
+            None => {}
         }
 
         if let Some(handshake_duration) = response.heartbeat_interval {
