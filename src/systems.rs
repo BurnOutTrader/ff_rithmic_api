@@ -11,6 +11,7 @@ pub enum RithmicSystem {
     Rithmic01,
     Rithmic04Colo,
     RithmicPaperTrading,
+    RithmicTest,
     TopstepTrader,
     SpeedUp,
     TradeFundrr,
@@ -23,7 +24,6 @@ pub enum RithmicSystem {
     PropShopTrader,
     FourPropTrader,
     FastTrackTrading,
-    Test
 }
 
 #[allow(dead_code)]
@@ -50,6 +50,7 @@ impl RithmicSystem {
             RithmicSystem::Rithmic01 => "Rithmic 01".to_string(),
             RithmicSystem::Rithmic04Colo => "Rithmic 04 Colo".to_string(),
             RithmicSystem::RithmicPaperTrading => "Rithmic Paper Trading".to_string(),
+            RithmicSystem::RithmicTest => "Rithmic Test".to_string(),
             RithmicSystem::TopstepTrader => "TopstepTrader".to_string(),
             RithmicSystem::SpeedUp => "SpeedUp".to_string(),
             RithmicSystem::TradeFundrr => "TradeFundrr".to_string(),
@@ -62,7 +63,6 @@ impl RithmicSystem {
             RithmicSystem::PropShopTrader => "PropShopTrader".to_string(),
             RithmicSystem::FourPropTrader => "4PropTrader".to_string(),
             RithmicSystem::FastTrackTrading => "FastTrackTrading".to_string(),
-            RithmicSystem::Test => "Test".to_string()
         }
     }
 
@@ -73,6 +73,7 @@ impl RithmicSystem {
             "Rithmic 01" => Some(RithmicSystem::Rithmic01),
             "Rithmic 04 Colo" => Some(RithmicSystem::Rithmic04Colo),
             "Rithmic Paper Trading" => Some(RithmicSystem::RithmicPaperTrading),
+            "Rithmic Test" => Some(RithmicSystem::RithmicTest),
             "TopstepTrader" => Some(RithmicSystem::TopstepTrader),
             "SpeedUp" => Some(RithmicSystem::SpeedUp),
             "TradeFundrr" => Some(RithmicSystem::TradeFundrr),
@@ -85,7 +86,6 @@ impl RithmicSystem {
             "PropShopTrader" => Some(RithmicSystem::PropShopTrader),
             "4PropTrader" => Some(RithmicSystem::FourPropTrader),
             "FastTrackTrading" => Some(RithmicSystem::FastTrackTrading),
-            "Test" => Some(RithmicSystem::Test),
             _ => None,
         }
     }
@@ -95,6 +95,7 @@ impl RithmicSystem {
             RithmicSystem::Rithmic01 => "rithmic_01.toml".to_string(),
             RithmicSystem::Rithmic04Colo => "rithmic_04_colo.toml".to_string(),
             RithmicSystem::RithmicPaperTrading => "rithmic_paper_trading.toml".to_string(),
+            RithmicSystem::RithmicTest => "rithmic_test.toml".to_string(),
             RithmicSystem::TopstepTrader => "topstep_trader.toml".to_string(),
             RithmicSystem::SpeedUp => "speedup.toml".to_string(),
             RithmicSystem::TradeFundrr => "tradefundrr.toml".to_string(),
@@ -107,7 +108,6 @@ impl RithmicSystem {
             RithmicSystem::PropShopTrader => "propshop_trader.toml".to_string(),
             RithmicSystem::FourPropTrader => "4prop_trader.toml".to_string(),
             RithmicSystem::FastTrackTrading => "fasttrack_trading.toml".to_string(),
-            RithmicSystem::Test => "test.toml".to_string(),
         }
     }
 
@@ -116,6 +116,7 @@ impl RithmicSystem {
             "rithmic_01.toml" => Some(RithmicSystem::Rithmic01),
             "rithmic_04_colo.toml" => Some(RithmicSystem::Rithmic04Colo),
             "rithmic_paper_trading.toml" => Some(RithmicSystem::RithmicPaperTrading),
+            "rithmic_test.toml" => Some(RithmicSystem::RithmicTest),
             "topstep_trader.toml" => Some(RithmicSystem::TopstepTrader),
             "speedup.toml" => Some(RithmicSystem::SpeedUp),
             "tradefundrr.toml" => Some(RithmicSystem::TradeFundrr),
@@ -128,7 +129,6 @@ impl RithmicSystem {
             "propshop_trader.toml" => Some(RithmicSystem::PropShopTrader),
             "4prop_trader.toml" => Some(RithmicSystem::FourPropTrader),
             "fasttrack_trading.toml" => Some(RithmicSystem::FastTrackTrading),
-            "test.toml" => Some(RithmicSystem::Test),
             _ => None,
         }
     }
