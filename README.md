@@ -1,3 +1,6 @@
+See BurnOutTrader/tick-trade for a better api implementation.
+or BurnOutTrader/nautilus_trader/tree/develop/crates/adapters/rithmic
+
 # ff_rithmic_api
 This rithmic api was written for [Fund Forge](https://github.com/BurnOutTrader/fund-forge), an algorithmic trading platform written in rust. (fund-forge available once live testing is underway).
 
